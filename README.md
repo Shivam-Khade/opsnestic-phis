@@ -36,7 +36,7 @@ cp .env.example .env.local
 ```
 Fill out the variables in `.env.local`:
 - `DATABASE_URL`: Your MySQL connection string (e.g., `mysql://root:password@localhost:3306/phishguard`)
-- `NEXTAUTH_SECRET`: Generate one using `openssl rand -base64 32` or via https://generate-secret.vercel.app/32
+- `AUTH_SECRET`: Generate one using `openssl rand -base64 32` or via https://generate-secret.vercel.app/32
 - `GEMINI_API_KEY`: Get your free API key from [Google AI Studio](https://aistudio.google.com)
 
 ### 3. Install Dependencies
@@ -70,4 +70,4 @@ The application can be built for production:
 npm run build
 npm start
 ```
-Note: Make sure to set production environment variables (e.g., `DATABASE_URL`, `NEXTAUTH_SECRET`, `GEMINI_API_KEY`, etc.) and ensure the database is properly migrated in the production environment.
+Note: Make sure to set production environment variables (e.g., `DATABASE_URL`, `AUTH_SECRET`, `GEMINI_API_KEY`, etc.) and ensure the database is properly migrated in the production environment.
