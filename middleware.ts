@@ -30,6 +30,15 @@ export async function middleware(req: NextRequest) {
     }
   }
 
+  // Normal user routes — prevent admin access
+  const normalUserRoutes = ['/dashboard', '/training', '/history', '/profile'];
+  if (normalUserRoutes.some((r) => pathname.startsWith(r))) {
+    const role = (session.user as any).role;
+    if (role === 'admin') {
+      return NextResponse.redirect(new URL('/admin', req.url));
+    }
+  }
+
   return NextResponse.next();
 }
 

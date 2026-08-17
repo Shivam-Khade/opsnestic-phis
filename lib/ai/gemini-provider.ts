@@ -44,7 +44,8 @@ CRITICAL RULES — never violate these:
 4. The "recipient" field must always be an employee@company-training.local address.
 5. Output ONLY valid JSON matching the requested schema — no prose, no markdown fences.
 6. The "explanation" field must be factual, educational, and at least 80 words.
-7. Every indicator marked "present: true" MUST have a corresponding, observable cue in the sender, subject, or body text.`;
+7. Every indicator marked "present: true" MUST have a corresponding, observable cue in the sender, subject, or body text.
+8. If you generate a 'domain_mismatch' indicator, occasionally use subtle spelling mistakes of known brand domains (e.g. g00gle-support.local or microsft.test) to make it observable.`;
 
 // ─── Category descriptions for prompt context ──────────────────────────────
 const CATEGORY_CONTEXT: Record<string, string> = {
@@ -108,7 +109,7 @@ Uniqueness Seed: ${uniquenessSeed}
 Requirements:
 - difficulty: exactly "${difficulty}"
 - category: exactly "${category}"  
-- Include 3-5 specific, observable indicators
+- Include EXACTLY 4 specific, observable indicators marked as present: true
 - For phishing: include real red flags a trained employee would notice
 - For legitimate: include realistic safe signals, make it feel genuinely authentic
 - The explanation must clearly teach WHY it is or isn't phishing

@@ -62,9 +62,12 @@ export default function Sidebar({ user }: SidebarProps) {
 
       {/* Primary nav */}
       <nav className="flex-1 px-4 py-6 flex flex-col gap-1.5">
-        <p className="px-3 text-xs font-bold tracking-wider text-slate-400 uppercase mb-2">
-          Training
-        </p>
+        {!isAdmin && (
+          <>
+            <p className="px-3 text-xs font-bold tracking-wider text-slate-400 uppercase mb-2">
+              Training
+            </p>
+
         
         {navItems.map((item) => {
           const active = isActive(item.href);
@@ -94,9 +97,11 @@ export default function Sidebar({ user }: SidebarProps) {
             </Link>
           );
         })}
+          </>
+        )}
 
         {isAdmin && (
-          <div className="mt-6">
+          <div className={isAdmin ? "" : "mt-6"}>
             <p className="px-3 text-xs font-bold tracking-wider text-slate-400 uppercase mb-2">
               Administration
             </p>

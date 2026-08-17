@@ -165,13 +165,16 @@ export function selectNextScenario(
   const summaries = new Map<string, CategorySummary>();
 
   for (const [slug, records] of byCategory) {
-    const totalCorrect = records.reduce((s, r) => s + r.correct_count, 0);
-    const totalIncorrect = records.reduce((s, r) => s + r.incorrect_count, 0);
+    const generalRecords = records.filter(r => r.indicator_type === 'general');
+    
+    const totalCorrect = generalRecords.reduce((s, r) => s + r.correct_count, 0);
+    const totalIncorrect = generalRecords.reduce((s, r) => s + r.incorrect_count, 0);
     const accuracy = computeAccuracy(totalCorrect, totalIncorrect);
     const totalAttempts = totalCorrect + totalIncorrect;
-    const maxDifficultyRank = records.reduce((m, r) => Math.max(m, r.difficulty_rank), 1);
+    const maxDifficultyRank = generalRecords.reduce((m, r) => Math.max(m, r.difficulty_rank), 1);
+    
     const weakIndicators = findWeakIndicators(records);
-    const trend = detectTrend(records);
+    const trend = detectTrend(generalRecords);
 
     let weight = 1.0; // baseline — every category is always reachable
 
@@ -210,8 +213,21 @@ export function selectNextScenario(
     });
   }
 
-  // ── Step 5: Weighted-random category selection ─────────────────────────
-  const selectedCategorySlug = weightedRandom(weights);
+  // ── Step 5: Strict prioritization of weakest category ─────────────────────────
+  let lowestAccuracy = Infinity;
+  let candidates: string[] = [];
+
+  for (const [slug, summary] of summaries.entries()) {
+    if (summary.accuracy < lowestAccuracy) {
+      lowestAccuracy = summary.accuracy;
+      candidates = [slug];
+    } else if (summary.accuracy === lowestAccuracy) {
+      candidates.push(slug);
+    }
+  }
+
+  // Randomly pick one of the weakest categories
+  const selectedCategorySlug = candidates[Math.floor(Math.random() * candidates.length)];
   const summary = summaries.get(selectedCategorySlug)!;
 
   // ── Difficulty selection ───────────────────────────────────────────────
@@ -252,8 +268,9 @@ export function computeCategoryWeights(
   }
 
   return [...byCategory.entries()].map(([slug, records]) => {
-    const c = records.reduce((s, r) => s + r.correct_count, 0);
-    const i = records.reduce((s, r) => s + r.incorrect_count, 0);
+    const generalRecords = records.filter(r => r.indicator_type === 'general');
+    const c = generalRecords.reduce((s, r) => s + r.correct_count, 0);
+    const i = generalRecords.reduce((s, r) => s + r.incorrect_count, 0);
     return { category: slug, weight: 0, accuracy: computeAccuracy(c, i) };
   });
 }
