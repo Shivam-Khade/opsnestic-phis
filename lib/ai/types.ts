@@ -22,6 +22,7 @@ export const ScenarioDraftSchema = z.object({
   subject: z.string().min(5).max(500),
   body: z.string().min(50),
   is_phishing: z.boolean(),
+  is_hallucinated: z.boolean().default(false),
   indicators: z.array(IndicatorSchema).length(4),
   explanation: z.string().min(50, 'explanation must be at least 50 characters'),
   recommended_training_skill: z.string().min(1),
@@ -30,10 +31,13 @@ export type ScenarioDraft = z.infer<typeof ScenarioDraftSchema>;
 
 // ─── Parameters used to request a scenario from an AI provider ───────────────
 export interface ScenarioGenerationParams {
+  userId?: number;              // ID of the user requesting the scenario
   category: string;             // e.g. "invoice", "hr_communication"
   difficulty: 'beginner' | 'intermediate' | 'advanced';
   indicatorBias?: string[];     // indicator types to emphasise, from adaptive engine
   forcePhishing?: boolean;      // override to produce a phishing scenario
+  forceHallucination?: boolean; // override to produce a hallucinated scenario
+  recentSubjects?: string[];    // recent subjects to avoid repetition
 }
 
 // ─── The provider interface — any AI backend implements this ─────────────────

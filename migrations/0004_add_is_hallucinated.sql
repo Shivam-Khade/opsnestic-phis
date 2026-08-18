@@ -1,0 +1,1 @@
+ALTER TABLE scenarios ADD COLUMN is_hallucinated TINYINT(1) NOT NULL DEFAULT 0;

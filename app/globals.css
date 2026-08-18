@@ -61,6 +61,40 @@
   --font-mono: var(--font-mono);
 }
 
+.dark {
+  /* ── Core background layers ── */
+  --bg-base:       #0f172a;
+  --bg-surface:    #1e293b;
+  --bg-elevated:   rgba(30, 41, 59, 0.9);
+  --bg-card:       rgba(30, 41, 59, 0.65);
+  --bg-hover:      rgba(255, 255, 255, 0.1);
+
+  /* ── Primary accent ── */
+  --accent-primary:    #e2e8f0;
+  --accent-primary-10: rgba(226, 232, 240, 0.1);
+  --accent-primary-20: rgba(226, 232, 240, 0.2);
+  --accent-primary-40: rgba(226, 232, 240, 0.4);
+
+  /* ── Semantic colors ── */
+  --color-danger:       #f43f5e;
+  --color-danger-10:    rgba(244, 63, 94, 0.15);
+  --color-success:      #10b981;
+  --color-success-10:   rgba(16, 185, 129, 0.15);
+  --color-warning:      #f59e0b;
+  --color-warning-10:   rgba(245, 158, 11, 0.15);
+
+  /* ── Text hierarchy ── */
+  --text-primary:   #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted:     #64748b;
+  --text-accent:    #f8fafc;
+
+  /* ── Borders ── */
+  --border-subtle: #1e293b;
+  --border-default: #334155;
+  --border-accent: #475569;
+}
+
 /* ═══════════════════════════════════════════════════════════════
    Base resets & body
 ═══════════════════════════════════════════════════════════════ */
@@ -76,16 +110,28 @@ html {
 }
 
 body {
-  background-color: #f8fafc;
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+  line-height: 1.6;
+}
+
+/* Add subtle gradients only in light mode for the premium feel */
+:root:not(.dark) body {
   background-image: 
     radial-gradient(at 0% 0%, hsla(253,16%,7%,0.03) 0, transparent 50%), 
     radial-gradient(at 50% 0%, hsla(225,39%,30%,0.04) 0, transparent 50%), 
     radial-gradient(at 100% 0%, hsla(339,49%,30%,0.03) 0, transparent 50%);
   background-attachment: fixed;
-  color: var(--text-primary);
-  font-family: var(--font-sans);
-  min-height: 100vh;
-  line-height: 1.6;
+}
+
+.dark body {
+  background-image: 
+    radial-gradient(at 0% 0%, hsla(253,16%,80%,0.03) 0, transparent 50%), 
+    radial-gradient(at 50% 0%, hsla(225,39%,80%,0.04) 0, transparent 50%), 
+    radial-gradient(at 100% 0%, hsla(339,49%,80%,0.03) 0, transparent 50%);
+  background-attachment: fixed;
 }
 
 /* ═══════════════════════════════════════════════════════════════

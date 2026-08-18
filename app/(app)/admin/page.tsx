@@ -36,6 +36,7 @@ export default async function AdminPage() {
   const ADMIN_LINKS = [
     { href: '/admin/users', label: 'Manage Users', icon: '👥', desc: `${Number(totalUsers?.count ?? 0)} registered users` },
     { href: '/admin/scenarios', label: 'Scenario Library', icon: '📧', desc: `${Number(totalScenarios?.count ?? 0)} scenarios generated` },
+    { href: '/admin/domains', label: 'Company Domains', icon: '🏢', desc: 'AI generation context' },
     { href: '/admin/analytics', label: 'Analytics', icon: '📊', desc: 'Platform-wide performance data' },
   ];
 
@@ -124,8 +125,7 @@ export default async function AdminPage() {
         .stat-icon { font-size:1.5rem; }
         .stat-value { font-size:2rem; font-weight:600; line-height:1; font-family: var(--font-mono); letter-spacing: -0.02em; }
         .stat-label { font-size:0.75rem; font-weight:600; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.05em; }
-        .admin-links { display:grid; grid-template-columns:repeat(3,1fr); gap:1.5rem; margin-bottom:2.5rem; }
-        @media(max-width:700px) { .admin-links { grid-template-columns:1fr; } }
+        .admin-links { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:1.5rem; margin-bottom:2.5rem; }
         .admin-link-card { padding:1.5rem; display:flex; align-items:center; gap:1rem; text-decoration:none; background: var(--bg-card); border: 1px solid var(--border-default); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); transition: all 0.2s; }
         .admin-link-card:hover { border-color: var(--border-accent); box-shadow: var(--shadow-elevated); transform: translateY(-1px); }
         .alc-icon { font-size:1.75rem; flex-shrink:0; }

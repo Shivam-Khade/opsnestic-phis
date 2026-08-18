@@ -1,6 +1,7 @@
 import type { AiProvider } from './types';
 
 import { GeminiProvider } from './gemini-provider';
+import { OpenRouterProvider } from './openrouter-provider';
 
 let instance: AiProvider | null = null;
 
@@ -14,9 +15,13 @@ export function getAiProvider(): AiProvider {
     return instance;
   }
 
-  // Future adapters: 'groq', 'openrouter', etc.
-  // Add a new class implementing AiProvider and register here.
+  if (provider === 'openrouter') {
+    instance = new OpenRouterProvider();
+    return instance;
+  }
+
+  // Future adapters: 'groq' etc.
   throw new Error(
-    `Unknown AI_PROVIDER: "${provider}". Supported values: gemini`
+    `Unknown AI_PROVIDER: "${provider}". Supported values: gemini, openrouter`
   );
 }

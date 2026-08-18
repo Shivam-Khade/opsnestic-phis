@@ -1,6 +1,7 @@
 import { db } from '@/lib/db';
 import { selectNextScenario } from '@/lib/adaptive-engine';
 import { generateAndPersistScenario, getScenarioById } from '@/lib/services/scenario.service';
+import { getRandomActiveCompanyDomain } from '@/lib/services/company-domain.service';
 import type { NewUserAttempt } from '@/lib/db/types';
 
 // ─── Start or get current training session ────────────────────────────────────
@@ -25,7 +26,7 @@ export async function getOrCreateSession(userId: number): Promise<number> {
 }
 
 // ─── Get the next scenario for a user (via adaptive engine) ──────────────────
-export async function getNextScenarioForUser(userId: number): Promise<{
+export async function getNextScenarioForUser(userId: number, forceHallucination?: boolean): Promise<{
   scenarioId: number;
   usedFallback: boolean;
   adaptiveSelection: { category: string; difficulty: string; indicatorBias: string[] };
@@ -53,10 +54,12 @@ export async function getNextScenarioForUser(userId: number): Promise<{
 
   // Generate (or fetch fallback) a scenario matching the selection
   const { scenarioId, usedFallback } = await generateAndPersistScenario({
+    userId,
     category: selection.category,
     difficulty: selection.difficulty,
     indicatorBias: selection.indicatorBias,
-    forcePhishing: Math.random() < 0.5,
+    forcePhishing: forceHallucination !== undefined ? false : Math.random() < 0.5,
+    forceHallucination,
   });
 
   return { scenarioId, usedFallback, adaptiveSelection: selection };
@@ -255,13 +258,14 @@ export async function refreshUserSkills(userId: number) {
 
 // ─── Training history ─────────────────────────────────────────────────────────
 export async function getTrainingHistory(userId: number, limit = 20) {
-  return db
+  const history = await db
     .selectFrom('user_attempts as ua')
     .innerJoin('scenarios as s', 's.id', 'ua.scenario_id')
     .innerJoin('categories as c', 'c.id', 's.category_id')
     .innerJoin('difficulty_levels as d', 'd.id', 's.difficulty_id')
     .select([
       'ua.id',
+      'ua.scenario_id',
       'ua.user_decision',
       'ua.is_correct',
       'ua.score',
@@ -275,4 +279,20 @@ export async function getTrainingHistory(userId: number, limit = 20) {
     .orderBy('ua.responded_at', 'desc')
     .limit(limit)
     .execute();
+
+  const activeDomain = await getRandomActiveCompanyDomain();
+
+  if (activeDomain) {
+    const defaultDomain = 'company-training.local';
+    const replaceDomain = (text: string | null) => {
+      if (!text) return text;
+      return text.replace(new RegExp(defaultDomain, 'gi'), activeDomain.domain);
+    };
+
+    history.forEach(item => {
+      item.subject = replaceDomain(item.subject) as string;
+    });
+  }
+
+  return history;
 }

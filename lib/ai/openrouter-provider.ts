@@ -1,40 +1,7 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { getRandomActiveCompanyDomain } from '@/lib/services/company-domain.service';
 import type { AiProvider, ScenarioDraft, ScenarioGenerationParams } from './types';
 import { ScenarioDraftSchema } from './types';
 import crypto from 'crypto';
-
-const SchemaType = { OBJECT: 'object', STRING: 'string', BOOLEAN: 'boolean', ARRAY: 'array' } as const;
-
-// ─── Gemini response schema (mirrors the Zod schema, in Google's format) ─────
-const responseSchema = {
-  type: SchemaType.OBJECT,
-  properties: {
-    category:   { type: SchemaType.STRING },
-    difficulty: { type: SchemaType.STRING, enum: ['beginner', 'intermediate', 'advanced'] },
-    sender:     { type: SchemaType.STRING },
-    recipient:  { type: SchemaType.STRING },
-    subject:    { type: SchemaType.STRING },
-    body:       { type: SchemaType.STRING },
-    is_phishing: { type: SchemaType.BOOLEAN },
-    is_hallucinated: { type: SchemaType.BOOLEAN },
-    indicators: {
-      type: SchemaType.ARRAY,
-      items: {
-        type: SchemaType.OBJECT,
-        properties: {
-          type:        { type: SchemaType.STRING },
-          present:     { type: SchemaType.BOOLEAN },
-          description: { type: SchemaType.STRING },
-        },
-        required: ['type', 'present', 'description'],
-      },
-    },
-    explanation:                { type: SchemaType.STRING },
-    recommended_training_skill: { type: SchemaType.STRING },
-  },
-  required: ['category','difficulty','sender','recipient','subject','body','is_phishing','is_hallucinated','indicators','explanation','recommended_training_skill'],
-};
 
 // ─── Category descriptions for prompt context ──────────────────────────────
 const CATEGORY_CONTEXT: Record<string, string> = {
@@ -47,16 +14,17 @@ const CATEGORY_CONTEXT: Record<string, string> = {
   social_engineering: 'A social-engineering email exploiting authority, urgency, or trust',
 };
 
-// ─── Gemini adapter ─────────────────────────────────────────────────────────
-export class GeminiProvider implements AiProvider {
-  private client: GoogleGenerativeAI;
+// ─── OpenRouter adapter ───────────────────────────────────────────────────────
+export class OpenRouterProvider implements AiProvider {
+  private apiKey: string;
   private modelName: string;
 
   constructor() {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) throw new Error('GEMINI_API_KEY is not set');
-    this.client = new GoogleGenerativeAI(apiKey);
-    this.modelName = process.env.AI_MODEL ?? 'gemini-1.5-flash';
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey) throw new Error('OPENROUTER_API_KEY is not set in .env.local');
+    this.apiKey = apiKey;
+    // Using a good free tier model. Deepseek or Llama-3 8B are great free options on OpenRouter.
+    this.modelName = process.env.AI_MODEL ?? 'meta-llama/llama-3.1-8b-instruct:free';
   }
 
   async generateScenario(params: ScenarioGenerationParams): Promise<ScenarioDraft> {
@@ -119,35 +87,65 @@ Requirements:
 - The explanation must clearly teach WHY it is or isn't phishing
 - The email must feel fully distinct from any generic templates. Use specific, believable details.
 
-Respond with ONLY a JSON object — no markdown, no code fences, no extra text.`;
+Respond with ONLY a JSON object — no markdown, no code fences, no extra text. The JSON must have these exact keys:
+- category (string)
+- difficulty (string: 'beginner', 'intermediate', 'advanced')
+- sender (string)
+- recipient (string)
+- subject (string)
+- body (string)
+- is_phishing (boolean)
+- is_hallucinated (boolean)
+- indicators (array of EXACTLY 4 objects, each with 'type' (string), 'present' (boolean), and 'description' (string))
+- explanation (string, min 80 chars)
+- recommended_training_skill (string)`;
 
-    const model = this.client.getGenerativeModel({
-      model: this.modelName,
-      systemInstruction: SYSTEM_PROMPT,
-      generationConfig: {
-        responseMimeType: 'application/json',
-        responseSchema: responseSchema as any,
-        temperature: 0.9,
-        topP: 0.95,
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.apiKey}`,
+        'Content-Type': 'application/json'
       },
+      body: JSON.stringify({
+        model: this.modelName,
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content: userPrompt }
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.9,
+        top_p: 0.95
+      })
     });
 
-    const result = await model.generateContent(userPrompt);
-    const text = result.response.text();
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`OpenRouter API error (${res.status}): ${text}`);
+    }
 
-    // Parse JSON (Gemini JSON-mode should return valid JSON, but we re-validate)
+    const data = await res.json();
+    let text = data.choices[0]?.message?.content;
+    
+    if (!text) {
+      throw new Error('OpenRouter returned empty content');
+    }
+
+    // Attempt to strip any markdown code block wrappers if they slipped through
+    text = text.replace(/^```(json)?\n/, '').replace(/\n```$/, '');
+
+    // Parse JSON
     let raw: unknown;
     try {
       raw = JSON.parse(text);
     } catch {
-      throw new Error(`Gemini returned non-JSON content: ${text.slice(0, 200)}`);
+      throw new Error(`OpenRouter returned non-JSON content: ${text.slice(0, 200)}`);
     }
 
-    // Re-validate with our Zod schema — JSON mode reduces errors, doesn't eliminate them
+    // Re-validate with our Zod schema
     const parsed = ScenarioDraftSchema.safeParse(raw);
     if (!parsed.success) {
       throw new Error(
-        `Gemini output failed Zod validation: ${parsed.error.issues.map(i => i.message).join('; ')}`
+        `OpenRouter output failed Zod validation: ${parsed.error.issues.map(i => i.message).join('; ')}`
       );
     }
 

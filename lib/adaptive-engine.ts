@@ -213,21 +213,8 @@ export function selectNextScenario(
     });
   }
 
-  // ── Step 5: Strict prioritization of weakest category ─────────────────────────
-  let lowestAccuracy = Infinity;
-  let candidates: string[] = [];
-
-  for (const [slug, summary] of summaries.entries()) {
-    if (summary.accuracy < lowestAccuracy) {
-      lowestAccuracy = summary.accuracy;
-      candidates = [slug];
-    } else if (summary.accuracy === lowestAccuracy) {
-      candidates.push(slug);
-    }
-  }
-
-  // Randomly pick one of the weakest categories
-  const selectedCategorySlug = candidates[Math.floor(Math.random() * candidates.length)];
+  // ── Step 5: Weighted random selection ─────────────────────────────────────────
+  const selectedCategorySlug = weightedRandom(weights);
   const summary = summaries.get(selectedCategorySlug)!;
 
   // ── Difficulty selection ───────────────────────────────────────────────

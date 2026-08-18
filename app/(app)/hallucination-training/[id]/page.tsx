@@ -54,9 +54,10 @@ function TrainingScenarioContent() {
   const [scenario, setScenario] = useState<Scenario | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedIndicators, setSelectedIndicators] = useState<string[]>([]);
-  const [submitted, setSubmitted] = useState(false);
-  const [result, setResult] = useState<AttemptResult | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitting] = useState(false);
+  // Re-use submitted/result for the hallucination result
+  const [result, setResult] = useState<{isCorrect: boolean, explanation: string} | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [showHeaders, setShowHeaders] = useState(false);
 
   useEffect(() => {
@@ -72,39 +73,43 @@ function TrainingScenarioContent() {
     );
   };
 
-  async function makeDecision(decision: 'phishing' | 'legitimate') {
-    if (!sessionId || submitting) return;
-    setSubmitting(true);
+  async function makeDecision(decision: 'hallucinated' | 'real') {
+    if (!sessionId || isSubmitting) return;
+    setIsSubmitting(true);
     try {
-      const res = await fetch('/api/training/attempt', {
+      const res = await fetch('/api/training/report-hallucination', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sessionId: Number(sessionId),
           scenarioId: Number(scenarioId),
-          userDecision: decision,
-          indicatorsSelected: selectedIndicators,
         }),
       });
       const data = await res.json();
-      setResult(data);
-      setSubmitted(true);
+      const isCorrect = (decision === 'hallucinated' && data.wasHallucinated) || (decision === 'real' && !data.wasHallucinated);
+      setResult({
+        isCorrect,
+        explanation: data.wasHallucinated 
+          ? 'This email contains a deliberate AI hallucination (impossible facts, contradictory details, etc).' 
+          : 'This is a real scenario with no hallucinations.'
+      });
+      setSubmitting(true); // set submitted
     } catch {
-      setSubmitting(false);
+      setIsSubmitting(false);
     }
   }
 
   async function nextScenario() {
     setLoading(true);
-    setSubmitted(false);
+    setSubmitting(false);
     setResult(null);
-    setSelectedIndicators([]);
     setShowHeaders(false);
 
     try {
-      const res = await fetch('/api/training/session', { method: 'POST' });
+      const res = await fetch('/api/hallucination-training/session', { method: 'POST' });
+      if (!res.ok) throw new Error('Failed to start session');
       const data = await res.json();
-      router.push(`/training/${data.scenarioId}?session=${data.sessionId}`);
+      router.push(`/hallucination-training/${data.scenarioId}?session=${data.sessionId}`);
     } catch {
       setLoading(false);
     }
@@ -126,9 +131,9 @@ function TrainingScenarioContent() {
         {/* Toolbar */}
         <div className="email-toolbar animate-fade-in">
           <div className="toolbar-left">
-            <button className="toolbar-btn" onClick={() => router.push('/training')}>
+            <button className="toolbar-btn" onClick={() => router.push('/hallucination-training')}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
-              Inbox
+              Back to Training
             </button>
           </div>
           <div className="toolbar-badges">
@@ -187,31 +192,11 @@ function TrainingScenarioContent() {
               <span className="explanation-verdict">
                 {result.isCorrect ? '✓ Correct!' : '✗ Incorrect'}
               </span>
-              <span className="explanation-score">+{result.score} pts</span>
             </div>
 
             <p className="explanation-text">{result.explanation}</p>
 
-            <div className="indicators-reveal">
-              <p className="indicators-reveal-title">Ground-truth indicators:</p>
-              <div className="indicators-list">
-                {result.indicators.map((ind, index) => (
-                  <div
-                    key={ind.type}
-                    className={`indicator-item animate-indicator ${ind.present ? 'indicator-present' : 'indicator-absent'}`}
-                    style={{ animationDelay: `${0.4 + index * 0.15}s` }}
-                  >
-                    <span className="indicator-icon">{ind.present ? '🔴' : '✅'}</span>
-                    <div>
-                      <p className="indicator-type">{INDICATOR_LABELS[ind.type] ?? ind.type}</p>
-                      <p className="indicator-desc">{ind.description}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <button className="btn-primary next-btn" onClick={nextScenario}>
+            <button className="btn-primary next-btn" style={{marginTop: '1.5rem'}} onClick={nextScenario}>
               Next Scenario →
             </button>
           </div>
@@ -222,52 +207,32 @@ function TrainingScenarioContent() {
       {!submitted && (
         <div className="decision-panel animate-slide-in-right">
           <div className="decision-card glass-card">
-            <h2 className="decision-title">Analyse this email</h2>
-            <p className="decision-subtitle">Is this email legitimate or a phishing attempt?</p>
+            <h2 className="decision-title">Spot the Hallucination</h2>
+            <p className="decision-subtitle">Does this email contain factually impossible or hallucinatory details?</p>
 
-            {/* Indicator selection */}
-            <div className="indicators-section">
-              <p className="indicators-label">What suspicious indicators did you notice?</p>
-              <div className="indicators-checkboxes">
-                {Object.entries(INDICATOR_LABELS).map(([key, label]) => (
-                  <label key={key} className={`indicator-checkbox ${selectedIndicators.includes(key) ? 'indicator-checked' : ''}`}>
-                    <input
-                      type="checkbox"
-                      checked={selectedIndicators.includes(key)}
-                      onChange={() => toggleIndicator(key)}
-                      style={{ display: 'none' }}
-                    />
-                    <span className="checkbox-icon">{selectedIndicators.includes(key) ? '☑' : '☐'}</span>
-                    <span>{label}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div className="decision-buttons">
+            <div className="decision-buttons" style={{marginTop: '2rem'}}>
               <button
                 className="decision-btn decision-btn-phishing"
-                onClick={() => makeDecision('phishing')}
-                disabled={submitting}
-                id="decide-phishing-btn"
+                onClick={() => makeDecision('hallucinated')}
+                disabled={isSubmitting}
+                style={{borderColor: 'var(--color-danger)', color: 'var(--color-danger)'}}
               >
-                <span className="decision-icon">🎣</span>
-                <span>Phishing</span>
-                <span className="decision-hint">This is a threat</span>
+                <span className="decision-icon">⚠️</span>
+                <span>Hallucinated</span>
+                <span className="decision-hint">It's fake/impossible</span>
               </button>
               <button
                 className="decision-btn decision-btn-legitimate"
-                onClick={() => makeDecision('legitimate')}
-                disabled={submitting}
-                id="decide-legitimate-btn"
+                onClick={() => makeDecision('real')}
+                disabled={isSubmitting}
               >
                 <span className="decision-icon">✅</span>
-                <span>Legitimate</span>
-                <span className="decision-hint">This is safe</span>
+                <span>Real</span>
+                <span className="decision-hint">No hallucinations</span>
               </button>
             </div>
 
-            {submitting && (
+            {isSubmitting && (
               <div className="submitting-overlay">
                 <div className="submitting-spinner" />
                 <p>Analysing your response…</p>
@@ -301,6 +266,8 @@ function TrainingScenarioContent() {
         .toolbar-btn { background:transparent; border:1px solid transparent; color:var(--text-secondary); cursor:pointer; display:flex; align-items:center; gap:0.375rem; font-size:0.875rem; font-weight:500; padding:0.375rem 0.75rem; border-radius:var(--radius-sm); transition:all 0.15s; }
         .toolbar-btn:hover:not(:disabled) { color:var(--text-primary); background:var(--bg-hover); border-color:var(--border-default); }
         .toolbar-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+        .reported-btn-danger { color: var(--color-danger); }
+        .reported-btn-success { color: var(--color-success); }
         .toolbar-badges { display:flex; gap:0.5rem; align-items:center; }
         .email-header { padding:1.5rem 2rem; border-bottom:1px solid var(--border-default); }
         .email-subject { font-size:1.5rem; font-weight:600; color:var(--text-primary); margin:0 0 1rem; line-height:1.3; letter-spacing: -0.02em; }
