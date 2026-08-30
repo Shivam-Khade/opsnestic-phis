@@ -240,18 +240,7 @@ function TrainingScenarioContent() {
             )}
           </div>
 
-          {/* Tips */}
-          <div className="tips-card glass-card">
-            <p className="tips-title">🔍 Things to look for</p>
-            <ul className="tips-list">
-              <li>Sender domain vs. claimed organisation</li>
-              <li>Urgency or threatening language</li>
-              <li>Generic greetings ("Dear Customer")</li>
-              <li>Requests for credentials or payment</li>
-              <li>Suspicious links or attachment names</li>
-              <li>Grammar and spelling errors</li>
-            </ul>
-          </div>
+
         </div>
       )}
 
@@ -327,10 +316,7 @@ function TrainingScenarioContent() {
         .submitting-spinner { width:32px; height:32px; border:3px solid var(--border-default); border-top-color:var(--accent-primary); border-radius:50%; animation:spin 0.8s linear infinite; }
         @keyframes spin { to { transform:rotate(360deg); } }
         .submitting-overlay p { color:var(--text-primary); font-size:0.875rem; font-weight: 500; }
-        .tips-card { padding:1.5rem; background: var(--bg-base); border-radius: var(--radius-lg); border: 1px solid var(--border-default); box-shadow: var(--shadow-card); }
-        .tips-title { font-size:0.875rem; font-weight:600; color:var(--text-primary); margin:0 0 1rem; display: flex; align-items: center; gap: 0.5rem; }
-        .tips-list { padding-left:1.5rem; margin:0; display:flex; flex-direction:column; gap:0.5rem; }
-        .tips-list li { font-size:0.875rem; color:var(--text-secondary); line-height:1.5; }
+
       `}</style>
     </div>
   );
