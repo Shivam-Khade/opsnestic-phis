@@ -28,12 +28,31 @@ export default function ChatClient({ history }: { history: ChatHistory[] }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [resultData, setResultData] = useState<{ isCorrect: boolean, actualHallucination?: boolean } | null>(null);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { error: toastError } = useToast();
   const router = useRouter();
 
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   useEffect(() => { scrollToBottom(); }, [messages, step]);
+
+  const handleGenerateSuggestions = async () => {
+    if (isLoadingSuggestions) return;
+    setIsLoadingSuggestions(true);
+    setSuggestions([]);
+    try {
+      const res = await fetch('/api/hallucination-chat/suggestions');
+      const data = await res.json();
+      if (data.suggestions && Array.isArray(data.suggestions)) {
+        setSuggestions(data.suggestions);
+      }
+    } catch (err) {
+      toastError('Failed to generate', 'Could not get suggestions. Please try again.');
+    } finally {
+      setIsLoadingSuggestions(false);
+    }
+  };
 
   const handleSendQuery = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -192,6 +211,48 @@ export default function ChatClient({ history }: { history: ChatHistory[] }) {
 
           {/* Input */}
           <div style={{ padding: '1rem 1.25rem', borderTop: '1px solid var(--border-glass)', background: 'var(--bg-glass)', backdropFilter: 'blur(12px)' }}>
+            
+            {messages.length === 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1rem' }}>
+                <button
+                  type="button"
+                  onClick={handleGenerateSuggestions}
+                  disabled={isLoadingSuggestions}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '0.5rem', alignSelf: 'flex-start',
+                    padding: '0.375rem 0.75rem', fontSize: '0.8125rem', background: 'var(--bg-hover)',
+                    border: '1px solid var(--border-default)', borderRadius: '8px', color: 'var(--text-secondary)',
+                    cursor: isLoadingSuggestions ? 'not-allowed' : 'pointer', opacity: isLoadingSuggestions ? 0.7 : 1,
+                  }}
+                >
+                  <RefreshCw size={14} style={isLoadingSuggestions ? { animation: 'spin 1s linear infinite' } : {}} />
+                  {isLoadingSuggestions ? 'Generating ideas...' : 'Suggest Prompts'}
+                </button>
+
+                <AnimatePresence>
+                  {suggestions.length > 0 && (
+                    <motion.div 
+                      initial={{ opacity: 0, height: 0, y: -5 }} 
+                      animate={{ opacity: 1, height: 'auto', y: 0 }}
+                      exit={{ opacity: 0, height: 0, y: -5 }}
+                      style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', overflow: 'hidden' }}
+                    >
+                      {suggestions.map((suggestion, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          className="suggestion-btn"
+                          onClick={() => setInput(suggestion)}
+                        >
+                          {suggestion}
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
+
             <form onSubmit={handleSendQuery} style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
               <input
                 type="text" value={input} onChange={e => setInput(e.target.value)}
@@ -361,6 +422,27 @@ export default function ChatClient({ history }: { history: ChatHistory[] }) {
         @media (max-width: 900px) {
           div[style*="flex-direction: row"] { flex-direction: column !important; }
           div[style*="width: 360px"] { width: 100% !important; }
+        }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        .suggestion-btn {
+          background: var(--bg-hover);
+          border: 1px solid var(--border-default);
+          border-radius: 16px;
+          padding: 0.5rem 0.875rem;
+          font-size: 0.8125rem;
+          color: var(--text-secondary);
+          cursor: pointer;
+          transition: all 0.2s;
+          text-align: left;
+          max-width: 100%;
+        }
+        .suggestion-btn:hover {
+          border-color: var(--accent-primary);
+          color: var(--text-primary);
+          background: var(--bg-base);
         }
       `}</style>
     </div>
