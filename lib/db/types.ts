@@ -41,7 +41,6 @@ export interface ScenarioTable {
   subject: string;
   body: string;
   is_phishing: 0 | 1;
-  is_hallucinated: 0 | 1;
   source: 'ai_generated' | 'fallback';
   validation_status: 'passed' | 'failed' | 'pending';
   explanation: string;
@@ -142,16 +141,20 @@ export interface CompanyDomainTable {
 export type CompanyDomain = Selectable<CompanyDomainTable>;
 export type NewCompanyDomain = Insertable<CompanyDomainTable>;
 
-// ─── Reported Hallucinations ──────────────────────────────────────────────────
-export interface ReportedHallucinationTable {
+// ─── Chat Hallucinations ───────────────────────────────────────────────────────
+export interface ChatHallucinationAttemptTable {
   id: Generated<number>;
   user_id: number;
-  scenario_id: number;
-  session_id: number;
-  reported_at: Generated<Date>;
+  query: string;
+  response: string;
+  was_hallucinated: 0 | 1;
+  user_decision: 'hallucination' | 'factual' | null;
+  user_reasoning: string | null;
+  is_correct: 0 | 1 | null;
+  created_at: Generated<Date>;
 }
-export type ReportedHallucination = Selectable<ReportedHallucinationTable>;
-export type NewReportedHallucination = Insertable<ReportedHallucinationTable>;
+export type ChatHallucinationAttempt = Selectable<ChatHallucinationAttemptTable>;
+export type NewChatHallucinationAttempt = Insertable<ChatHallucinationAttemptTable>;
 
 // ─── Kysely DB interface ─────────────────────────────────────────────────────
 export interface DB {
@@ -166,5 +169,5 @@ export interface DB {
   user_performance: UserPerformanceTable;
   user_skills: UserSkillTable;
   company_domains: CompanyDomainTable;
-  reported_hallucinations: ReportedHallucinationTable;
+  chat_hallucination_attempts: ChatHallucinationAttemptTable;
 }

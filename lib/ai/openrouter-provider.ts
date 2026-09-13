@@ -28,7 +28,7 @@ export class OpenRouterProvider implements AiProvider {
   }
 
   async generateScenario(params: ScenarioGenerationParams): Promise<ScenarioDraft> {
-    const { category, difficulty, indicatorBias = [], forcePhishing, forceHallucination, recentSubjects = [] } = params;
+    const { category, difficulty, indicatorBias = [], forcePhishing, recentSubjects = [] } = params;
 
     const companyDomain = await getRandomActiveCompanyDomain();
 
@@ -61,10 +61,6 @@ CRITICAL RULES — never violate these:
 
     const uniquenessSeed = crypto.randomUUID();
 
-    const hallucinationNote = forceHallucination
-      ? '\n[CRITICAL INSTRUCTION: INTENTIONAL HALLUCINATION]\nYou must intentionally include blatantly false, hallucinatory, or factually incorrect information in the email premise or details (e.g. referencing non-existent physics, impossible dates, fake laws, or bizarre internal company events that could not happen). The user needs to practice spotting these AI hallucinations. You MUST set is_hallucinated to true.\n'
-      : '\nYou MUST set is_hallucinated to false.\n';
-
     const userPrompt = `Generate a ${difficulty} difficulty cybersecurity training email scenario.
 Category: ${category} — ${categoryCtx}${biasNote}${phishingNote}
 
@@ -72,7 +68,6 @@ COMPANY CONTEXT:
 ${companyContext}
 (Ensure the recipient and internal references match this company).
 
-${hallucinationNote}
 ${recentSubjects.length > 0 ? `RECENTLY GENERATED SUBJECTS (DO NOT REPEAT OR USE SIMILAR PREMISES):\n${recentSubjects.map(s => `- "${s}"`).join('\n')}\n` : ''}
 
 Uniqueness Seed: ${uniquenessSeed}
@@ -95,7 +90,6 @@ Respond with ONLY a JSON object — no markdown, no code fences, no extra text. 
 - subject (string)
 - body (string)
 - is_phishing (boolean)
-- is_hallucinated (boolean)
 - indicators (array of EXACTLY 4 objects, each with 'type' (string), 'present' (boolean), and 'description' (string))
 - explanation (string, min 80 chars)
 - recommended_training_skill (string)`;

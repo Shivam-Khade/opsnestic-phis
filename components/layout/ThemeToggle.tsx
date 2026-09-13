@@ -3,59 +3,60 @@
 import * as React from 'react';
 import { useTheme } from 'next-themes';
 import { Sun, Moon } from 'lucide-react';
-import clsx from 'clsx';
-import { twMerge } from 'tailwind-merge';
-
-function cn(...classes: (string | undefined | null | false)[]) {
-  return twMerge(clsx(classes));
-}
 
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = React.useState(false);
 
-  React.useEffect(() => {
-    setMounted(true);
-  }, []);
+  React.useEffect(() => { setMounted(true); }, []);
 
-  if (!mounted) {
-    return (
-      <button className="w-full flex items-center gap-3 py-2 px-3 rounded-xl text-sm font-medium text-slate-600 bg-transparent border border-transparent">
-        <div className="w-4 h-4" />
-        <span>Loading Theme...</span>
-      </button>
-    );
-  }
+  if (!mounted) return (
+    <button style={{ width: '100%', height: '36px', background: 'transparent', border: '1px solid var(--border-default)', borderRadius: '8px' }} />
+  );
 
   const isDark = theme === 'dark';
 
   return (
     <button
       onClick={() => setTheme(isDark ? 'light' : 'dark')}
-      className={cn(
-        "w-full flex items-center justify-between py-2 px-3 rounded-xl text-sm font-medium transition-all duration-200 group border",
-        isDark 
-          ? "bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700 hover:text-white" 
-          : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-900"
-      )}
+      style={{
+        width: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '0.5rem 0.75rem',
+        borderRadius: '8px',
+        fontSize: '0.8125rem',
+        fontWeight: 500,
+        cursor: 'pointer',
+        color: 'var(--text-secondary)',
+        background: 'transparent',
+        border: '1px solid var(--border-default)',
+        transition: 'all 0.2s',
+      }}
       title="Toggle Theme"
     >
-      <div className="flex items-center gap-3">
-        {isDark ? (
-          <Moon className="w-4 h-4 group-hover:text-violet-400 transition-colors" />
-        ) : (
-          <Sun className="w-4 h-4 group-hover:text-amber-500 transition-colors" />
-        )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        {isDark
+          ? <Moon size={14} style={{ color: '#818cf8' }} />
+          : <Sun size={14} style={{ color: '#f59e0b' }} />
+        }
         <span>{isDark ? 'Dark Mode' : 'Light Mode'}</span>
       </div>
-      <div className={cn(
-        "w-8 h-4 rounded-full relative transition-colors duration-300",
-        isDark ? "bg-violet-600" : "bg-slate-300"
-      )}>
-        <div className={cn(
-          "absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white transition-transform duration-300",
-          isDark ? "translate-x-4" : "translate-x-0"
-        )} />
+      {/* Toggle pill */}
+      <div style={{
+        width: '30px', height: '16px', borderRadius: '99px', position: 'relative',
+        background: isDark ? 'var(--accent-primary)' : '#cbd5e1',
+        transition: 'background 0.3s',
+        flexShrink: 0,
+      }}>
+        <div style={{
+          position: 'absolute', top: '2px', left: '2px',
+          width: '12px', height: '12px', borderRadius: '50%',
+          background: '#fff',
+          transform: isDark ? 'translateX(14px)' : 'translateX(0)',
+          transition: 'transform 0.3s',
+        }} />
       </div>
     </button>
   );

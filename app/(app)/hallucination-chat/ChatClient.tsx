@@ -1,0 +1,368 @@
+'use client';
+
+import { useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Bot, User, Send, CheckCircle2, XCircle, RefreshCw, AlertTriangle, Search, RotateCcw, History, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useToast } from '@/components/ui/Toast';
+
+type Message = { role: 'user' | 'assistant'; content: string };
+type ChatHistory = {
+  id: number;
+  query: string;
+  response: string;
+  was_hallucinated: number;
+  user_decision: string | null;
+  is_correct: number | null;
+  created_at: Date;
+};
+
+export default function ChatClient({ history }: { history: ChatHistory[] }) {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [wasHallucinated, setWasHallucinated] = useState<boolean | null>(null);
+  const [step, setStep] = useState<'chat' | 'evaluate' | 'result'>('chat');
+  const [decision, setDecision] = useState<'hallucination' | 'factual' | null>(null);
+  const [reasoning, setReasoning] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [resultData, setResultData] = useState<{ isCorrect: boolean, actualHallucination?: boolean } | null>(null);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { error: toastError } = useToast();
+  const router = useRouter();
+
+  const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  useEffect(() => { scrollToBottom(); }, [messages, step]);
+
+  const handleSendQuery = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || isLoading) return;
+    const userMsg = input.trim();
+    setInput('');
+    const newMessages: Message[] = [...messages, { role: 'user', content: userMsg }];
+    setMessages(newMessages);
+    setIsLoading(true);
+    try {
+      const res = await fetch('/api/hallucination-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: newMessages })
+      });
+      if (!res.ok) throw new Error('Failed to fetch response');
+      const data = await res.json();
+      setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
+      setWasHallucinated(data.was_hallucinated);
+      setStep('evaluate');
+    } catch {
+      toastError('Request failed', 'Could not get an AI response. Please try again.');
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, I encountered an error. Please try again.' }]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSubmitDecision = async () => {
+    if (!decision || !reasoning.trim()) return;
+    setIsSubmitting(true);
+    try {
+      // Find the last user message and the last assistant message
+      const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content || '';
+      const lastAssistantMsg = [...messages].reverse().find(m => m.role === 'assistant')?.content || '';
+      
+      const res = await fetch('/api/hallucination-chat/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: lastUserMsg, response: lastAssistantMsg, was_hallucinated: wasHallucinated, user_decision: decision, user_reasoning: reasoning })
+      });
+      if (!res.ok) throw new Error('Failed to submit decision');
+      const data = await res.json();
+      setResultData({ isCorrect: data.is_correct, actualHallucination: data.actual_hallucination ?? wasHallucinated });
+      setStep('result');
+      router.refresh(); // Refresh history from server
+    } catch {
+      toastError('Submission failed', 'Error saving your evaluation. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleReset = () => {
+    setMessages([]); setInput(''); setWasHallucinated(null); setStep('chat');
+    setDecision(null); setReasoning(''); setResultData(null);
+  };
+
+  const handleContinue = () => {
+    setWasHallucinated(null); setStep('chat');
+    setDecision(null); setReasoning(''); setResultData(null);
+  };
+
+  /* ── Shared glass styles ── */
+  const glassPanel = {
+    background: 'var(--bg-card)',
+    backdropFilter: 'blur(20px)',
+    WebkitBackdropFilter: 'blur(20px)',
+    border: '1px solid var(--border-glass)',
+    borderRadius: '20px',
+    boxShadow: 'var(--shadow-card)',
+  } as React.CSSProperties;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', maxHeight: '100vh', maxWidth: '1200px', margin: '0 auto', padding: '1.5rem 2rem' }}>
+      {/* Header */}
+      <div style={{ marginBottom: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 800, margin: '0 0 0.25rem', letterSpacing: '-0.025em' }}>
+            <span style={{ background: 'var(--accent-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>AI Chat</span>
+            <span style={{ color: 'var(--text-primary)' }}> Training</span>
+          </h1>
+          <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', margin: 0 }}>
+            The AI has a 50% chance of subtly hallucinating. Ask a factual question, then fact-check!
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+          {step === 'result' && (
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button className="btn-ghost" onClick={handleReset} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <RotateCcw size={14} /> Clear Chat
+              </button>
+              <button className="btn-primary" onClick={handleContinue} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', fontSize: '0.875rem' }}>
+                Continue Chat
+              </button>
+            </div>
+          )}
+          <button className="btn-ghost" onClick={() => setShowHistoryModal(true)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <History size={16} /> View History
+          </button>
+        </div>
+      </div>
+      {/* Main layout  */}
+      <div style={{ flex: 1, overflow: 'hidden', display: 'flex', gap: '1.25rem' }}>
+        {/* Chat panel */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', ...glassPanel, overflow: 'hidden' }}>
+          {/* Messages */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            {messages.length === 0 && (
+              <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', opacity: 0.6 }}>
+                <div style={{ width: '56px', height: '56px', background: 'var(--accent-primary-10)', border: '1px solid var(--accent-primary-20)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1.25rem' }}>
+                  <Search size={24} style={{ color: 'var(--accent-primary)' }} />
+                </div>
+                <h3 style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 0.5rem' }}>Fact-Checking Challenge</h3>
+                <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', margin: 0, maxWidth: '340px', lineHeight: 1.6 }}>
+                  Ask a specific historical, scientific, or factual question. The AI might weave in a subtle lie. Verify the response!
+                </p>
+              </div>
+            )}
+
+            <AnimatePresence>
+              {messages.map((msg, i) => (
+                <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                  style={{ display: 'flex', gap: '0.875rem', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start', alignItems: 'flex-start' }}>
+                  {msg.role === 'assistant' && (
+                    <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--accent-gradient)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 12px rgba(79,70,229,0.3)' }}>
+                      <Bot size={16} color="#fff" />
+                    </div>
+                  )}
+                  <div style={{ maxWidth: '78%', borderRadius: '16px', padding: '0.875rem 1.125rem', ...(msg.role === 'user' ? { background: 'var(--accent-gradient)', color: '#fff', boxShadow: '0 4px 12px rgba(79,70,229,0.3)' } : { background: 'var(--bg-base)', border: '1px solid var(--border-default)', color: 'var(--text-primary)', boxShadow: 'var(--shadow-sm)' }) }}>
+                    <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.65, margin: 0, fontSize: '0.9375rem' }}>{msg.content}</p>
+                  </div>
+                  {msg.role === 'user' && (
+                    <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--border-default)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <User size={16} style={{ color: 'var(--text-secondary)' }} />
+                    </div>
+                  )}
+                </motion.div>
+              ))}
+            </AnimatePresence>
+
+            {isLoading && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ display: 'flex', gap: '0.875rem', alignItems: 'flex-start' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--accent-gradient)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 12px rgba(79,70,229,0.3)' }}>
+                  <Bot size={16} color="#fff" />
+                </div>
+                <div style={{ background: 'var(--bg-base)', border: '1px solid var(--border-default)', borderRadius: '16px', padding: '1rem 1.25rem', display: 'flex', alignItems: 'center', gap: '0.375rem', boxShadow: 'var(--shadow-sm)' }}>
+                  {[0, 150, 300].map((delay) => (
+                    <div key={delay} style={{ width: '8px', height: '8px', background: 'var(--accent-primary)', borderRadius: '50%', animation: 'bounce 1s ease-in-out infinite', animationDelay: `${delay}ms` }} />
+                  ))}
+                </div>
+              </motion.div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Input */}
+          <div style={{ padding: '1rem 1.25rem', borderTop: '1px solid var(--border-glass)', background: 'var(--bg-glass)', backdropFilter: 'blur(12px)' }}>
+            <form onSubmit={handleSendQuery} style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+              <input
+                type="text" value={input} onChange={e => setInput(e.target.value)}
+                disabled={step !== 'chat' || isLoading}
+                placeholder="Ask a complex factual question to begin…"
+                className="input-field"
+                style={{ flex: 1 }}
+              />
+              <button type="submit" disabled={!input.trim() || step !== 'chat' || isLoading}
+                style={{ width: '44px', height: '44px', background: 'var(--accent-gradient)', color: '#fff', border: 'none', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(79,70,229,0.4)', transition: 'all 0.2s', flexShrink: 0, opacity: (!input.trim() || step !== 'chat' || isLoading) ? 0.5 : 1 }}>
+                <Send size={16} />
+              </button>
+            </form>
+          </div>
+        </div>
+
+        {/* Evaluation panel */}
+        <AnimatePresence>
+          {step !== 'chat' && (
+            <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
+              style={{ width: '360px', display: 'flex', flexDirection: 'column', gap: '1rem', flexShrink: 0 }}>
+              {step === 'evaluate' && (
+                <div style={{ ...glassPanel, padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+                    <div style={{ width: '34px', height: '34px', background: 'var(--accent-primary-10)', border: '1px solid var(--accent-primary-20)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Search size={16} style={{ color: 'var(--accent-primary)' }} />
+                    </div>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Verify the Claim</h3>
+                  </div>
+                  <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6 }}>
+                    Search the web to verify the AI&apos;s response. Was it factual, or did it hallucinate?
+                  </p>
+
+                  {/* Decision radios */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+                    {[
+                      { value: 'factual' as const, label: "It's Factual", icon: CheckCircle2, color: '#10b981', bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.25)' },
+                      { value: 'hallucination' as const, label: 'It Hallucinated', icon: AlertTriangle, color: '#ef4444', bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.25)' },
+                    ].map((opt) => {
+                      const Icon = opt.icon;
+                      const selected = decision === opt.value;
+                      return (
+                        <label key={opt.value} style={{ display: 'flex', alignItems: 'center', padding: '0.875rem 1rem', border: `1.5px solid ${selected ? opt.border : 'var(--border-default)'}`, borderRadius: '12px', cursor: 'pointer', background: selected ? opt.bg : 'transparent', transition: 'all 0.2s' }}>
+                          <input type="radio" name="decision" value={opt.value} className="sr-only" onChange={() => setDecision(opt.value)} style={{ display: 'none' }} />
+                          <Icon size={18} style={{ marginRight: '0.75rem', color: selected ? opt.color : 'var(--text-muted)', flexShrink: 0 }} />
+                          <span style={{ fontWeight: 600, fontSize: '0.9rem', color: selected ? opt.color : 'var(--text-primary)' }}>{opt.label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+
+                  {/* Reasoning */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <label style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Reasoning / Proof</label>
+                    <textarea value={reasoning} onChange={e => setReasoning(e.target.value)}
+                      placeholder="e.g. I checked Wikipedia and the actual date is…"
+                      style={{ width: '100%', background: 'var(--bg-base)', border: '1px solid var(--border-default)', borderRadius: '12px', padding: '0.75rem', fontSize: '0.875rem', color: 'var(--text-primary)', resize: 'none', height: '96px', outline: 'none', fontFamily: 'var(--font-sans)', transition: 'border-color 0.2s', boxSizing: 'border-box' }}
+                      onFocus={e => (e.target.style.borderColor = 'var(--accent-primary)')}
+                      onBlur={e => (e.target.style.borderColor = 'var(--border-default)')}
+                    />
+                  </div>
+
+                  <button className="btn-primary" style={{ width: '100%', padding: '0.875rem' }}
+                    onClick={handleSubmitDecision} disabled={!decision || !reasoning.trim() || isSubmitting}>
+                    {isSubmitting ? 'Submitting…' : 'Submit Evaluation'}
+                  </button>
+                </div>
+              )}
+
+              {step === 'result' && resultData && (
+                <div style={{ ...glassPanel, padding: '1.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '1rem', borderColor: resultData.isCorrect ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)' }}>
+                  <div style={{ width: '64px', height: '64px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: resultData.isCorrect ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', boxShadow: `0 0 0 8px ${resultData.isCorrect ? 'rgba(16,185,129,0.06)' : 'rgba(239,68,68,0.06)'}` }}>
+                    {resultData.isCorrect
+                      ? <CheckCircle2 size={32} style={{ color: '#10b981' }} />
+                      : <XCircle size={32} style={{ color: '#ef4444' }} />}
+                  </div>
+                  <div>
+                    <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 0.5rem', letterSpacing: '-0.02em' }}>
+                      {resultData.isCorrect ? 'Correct!' : 'Incorrect'}
+                    </h3>
+                    <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6 }}>
+                      {resultData.isCorrect
+                        ? 'Great job verifying the facts! You successfully identified the nature of the response.'
+                        : `Your evaluation was incorrect. The AI was actually ${resultData.actualHallucination ? 'hallucinating.' : 'telling the truth.'}`}
+                    </p>
+                  </div>
+                  <div style={{ width: '100%', padding: '1rem', background: 'var(--bg-hover)', borderRadius: '12px', border: '1px solid var(--border-glass)', textAlign: 'left' }}>
+                    <p style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)', margin: '0 0 0.5rem' }}>Actual Status</p>
+                    <p style={{ fontSize: '0.9375rem', fontWeight: 700, color: resultData.actualHallucination ? '#ef4444' : '#10b981', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      {resultData.actualHallucination ? <AlertTriangle size={16} /> : <CheckCircle2 size={16} />}
+                      {resultData.actualHallucination ? (wasHallucinated === resultData.actualHallucination ? 'Intentional Hallucination' : 'Accidental Hallucination') : 'Factual Response'}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* History Modal */}
+      {showHistoryModal && (
+        <div onClick={() => setShowHistoryModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '2rem', animation: 'fadeIn 0.2s ease-out' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--bg-base)', borderRadius: '20px', width: '100%', maxWidth: '900px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative', boxShadow: '0 25px 60px rgba(0,0,0,0.25), 0 8px 20px rgba(0,0,0,0.15)', border: '1px solid var(--border-glass)' }}>
+            {/* Header */}
+            <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border-glass)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-glass)' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Session History</h2>
+              <button onClick={() => setShowHistoryModal(false)} style={{ background: 'var(--bg-hover)', border: 'none', color: 'var(--text-secondary)', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }}>
+                <X size={16} />
+              </button>
+            </div>
+            
+            {/* Body */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
+              {history.length === 0 ? (
+                <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                  <History size={48} style={{ opacity: 0.5, marginBottom: '1rem' }} />
+                  <p>No chat history yet. Start exploring!</p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {history.map((h) => (
+                    <div key={h.id} style={{ padding: '1.25rem', border: '1px solid var(--border-glass)', borderRadius: '12px', background: 'var(--bg-card)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
+                        <div style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                          <span style={{ color: 'var(--text-muted)', fontWeight: 700, marginRight: '0.5rem' }}>Q:</span>
+                          {h.query}
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
+                          {h.is_correct === 1 ? (
+                            <span className="badge badge-success">✓ Correct</span>
+                          ) : (
+                            <span className="badge badge-danger">✗ Incorrect</span>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.6, padding: '0.75rem', background: 'var(--bg-base)', borderRadius: '8px', border: '1px solid var(--border-default)' }}>
+                        <span style={{ color: 'var(--text-muted)', fontWeight: 700, marginRight: '0.5rem' }}>A:</span>
+                        {h.response.length > 200 ? h.response.substring(0, 200) + '...' : h.response}
+                      </div>
+                      
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.25rem' }}>
+                        <div style={{ display: 'flex', gap: '1rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                          <span>Actual: <strong style={{ color: h.was_hallucinated === 1 ? '#ef4444' : '#10b981' }}>{h.was_hallucinated === 1 ? 'Hallucination' : 'Factual'}</strong></span>
+                          <span>You guessed: <strong style={{ color: 'var(--text-primary)', textTransform: 'capitalize' }}>{h.user_decision}</strong></span>
+                        </div>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                          {new Date(h.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes bounce {
+          0%, 100% { transform: translateY(0); opacity: 0.4; }
+          50% { transform: translateY(-5px); opacity: 1; }
+        }
+        @media (max-width: 900px) {
+          div[style*="flex-direction: row"] { flex-direction: column !important; }
+          div[style*="width: 360px"] { width: 100% !important; }
+        }
+      `}</style>
+    </div>
+  );
+}

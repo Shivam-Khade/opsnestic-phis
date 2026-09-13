@@ -10,40 +10,43 @@ export default async function HistoryPage() {
   const userId = Number(session!.user!.id);
   const history = await getTrainingHistory(userId, 50);
 
+  const correct = history.filter((h) => h.is_correct).length;
+  const incorrect = history.filter((h) => !h.is_correct).length;
+
   return (
-    <div className="page-container">
-      <div className="page-header animate-fade-in-up">
+    <div style={{ padding: '2.5rem 3rem', maxWidth: '1200px', margin: '0 auto' }}>
+      {/* Header */}
+      <div className="animate-fade-in-up" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem', gap: '1rem', flexWrap: 'wrap' }}>
         <div>
-          <h1 className="page-title">Training History</h1>
-          <p className="page-subtitle">Your last 50 training attempts</p>
+          <h1 style={{ fontSize: '1.875rem', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 0.375rem', letterSpacing: '-0.025em' }}>
+            Training <span style={{ background: 'var(--accent-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>History</span>
+          </h1>
+          <p style={{ fontSize: '0.9375rem', color: 'var(--text-secondary)', margin: 0 }}>Your last 50 training attempts</p>
         </div>
-        <div className="history-stats">
-          <span className="hs-item">
-            <span className="hs-val">{history.length}</span> attempts
-          </span>
-          <span className="hs-item">
-            <span className="hs-val" style={{ color: 'var(--color-success)' }}>
-              {history.filter((h) => h.is_correct).length}
-            </span> correct
-          </span>
-          <span className="hs-item">
-            <span className="hs-val" style={{ color: 'var(--color-danger)' }}>
-              {history.filter((h) => !h.is_correct).length}
-            </span> incorrect
-          </span>
+
+        {/* Quick stats pills */}
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ padding: '0.5rem 1rem', background: 'var(--bg-card)', backdropFilter: 'blur(12px)', border: '1px solid var(--border-glass)', borderRadius: '10px', display: 'flex', gap: '0.5rem', alignItems: 'center', fontSize: '0.875rem' }}>
+            <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{history.length}</span>
+            <span style={{ color: 'var(--text-muted)' }}>attempts</span>
+          </div>
+          <div style={{ padding: '0.5rem 1rem', background: 'rgba(16,185,129,0.08)', backdropFilter: 'blur(12px)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: '10px', display: 'flex', gap: '0.5rem', alignItems: 'center', fontSize: '0.875rem' }}>
+            <span style={{ fontWeight: 700, color: '#10b981' }}>{correct}</span>
+            <span style={{ color: 'var(--text-muted)' }}>correct</span>
+          </div>
+          <div style={{ padding: '0.5rem 1rem', background: 'rgba(239,68,68,0.08)', backdropFilter: 'blur(12px)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '10px', display: 'flex', gap: '0.5rem', alignItems: 'center', fontSize: '0.875rem' }}>
+            <span style={{ fontWeight: 700, color: '#ef4444' }}>{incorrect}</span>
+            <span style={{ color: 'var(--text-muted)' }}>incorrect</span>
+          </div>
         </div>
       </div>
 
       <HistoryClient history={history} />
 
       <style>{`
-        .page-container { padding:2rem; max-width:1200px; }
-        .page-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:2rem; gap:1rem; flex-wrap:wrap; }
-        .page-title { font-size:1.75rem; font-weight:800; margin:0; }
-        .page-subtitle { font-size:0.875rem; color:var(--text-secondary); margin:0.25rem 0 0; }
-        .history-stats { display:flex; gap:1.5rem; }
-        .hs-item { font-size:0.85rem; color:var(--text-secondary); }
-        .hs-val { font-weight:800; font-size:1rem; color:var(--text-primary); }
+        @media (max-width: 768px) {
+          div[style*="padding: 2.5rem 3rem"] { padding: 1.5rem !important; }
+        }
       `}</style>
     </div>
   );

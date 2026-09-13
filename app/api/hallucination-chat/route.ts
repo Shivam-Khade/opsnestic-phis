@@ -1,0 +1,74 @@
+import { NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
+import { getAiProvider } from '@/lib/ai/provider-factory';
+import OpenAI from 'openai';
+
+export async function POST(req: Request) {
+  try {
+    const session = await auth();
+    if (!session || !session.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { messages } = await req.json();
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      return NextResponse.json({ error: 'Messages array is required' }, { status: 400 });
+    }
+
+    // Determine if it should be hallucinated (50% probability)
+    const isHallucinated = Math.random() < 0.5;
+
+    // We'll use OpenRouter to access better models as requested.
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey) {
+       return NextResponse.json({ error: 'OPENROUTER_API_KEY is not set' }, { status: 500 });
+    }
+
+    const openai = new OpenAI({
+      baseURL: 'https://openrouter.ai/api/v1',
+      apiKey: apiKey,
+      defaultHeaders: {
+        'HTTP-Referer': process.env.AUTH_URL || 'http://localhost:3000',
+        'X-Title': 'PhishGuard',
+      }
+    });
+
+    let modelName = process.env.AI_MODEL || 'meta-llama/llama-3.3-70b-instruct';
+    if (modelName === 'meta-llama/llama-3.1-8b-instruct:free' || modelName === 'meta-llama/llama-3.1-8b-instruct') {
+      // The free version is sometimes unavailable on OpenRouter, fallback to the paid slug
+      // Also upgrade 8b to 70b for better logic
+      modelName = 'meta-llama/llama-3.3-70b-instruct';
+    }
+
+    let systemPrompt = `You are a helpful AI assistant. You answer user queries clearly and concisely.`;
+
+    if (isHallucinated) {
+      systemPrompt = `You are an AI assistant. The user will ask you a query.
+[CRITICAL INSTRUCTION: COMPLEX HALLUCINATION]
+You MUST intentionally hallucinate in your response. The hallucination should NOT be trivially obvious (e.g., don't say the sky is green). It should be a subtle but completely false factual error, historical event, scientific concept, or non-existent entity. The goal is to make the user have to search the web to verify if your claim is true or not. Speak with absolute confidence. Provide convincing but fabricated details, names, or dates.`;
+    } else {
+      systemPrompt = `You are a helpful and factual AI assistant. You answer user queries clearly, accurately, and concisely. DO NOT hallucinate.`;
+    }
+
+    const completion = await openai.chat.completions.create({
+      model: modelName,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        ...messages
+      ],
+      temperature: isHallucinated ? 0.9 : 0.3,
+    });
+
+    const responseText = completion.choices[0]?.message?.content || 'Failed to generate response.';
+
+    return NextResponse.json({
+      response: responseText,
+      // We send this back to the client so the client knows what the truth is
+      // when submitting the decision form.
+      was_hallucinated: isHallucinated
+    });
+  } catch (error: any) {
+    console.error('Error generating chat response:', error);
+    return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
+  }
+}

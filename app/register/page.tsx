@@ -3,23 +3,27 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useToast } from '@/components/ui/Toast';
+import { Shield, User, Mail, Lock, ArrowRight } from 'lucide-react';
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { error: toastError } = useToast();
   const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '' });
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const update = (field: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setForm((prev) => ({ ...prev, [field]: e.target.value }));
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError('');
 
     if (form.password !== form.confirmPassword) {
-      setError('Passwords do not match');
+      toastError('Passwords do not match', 'Please make sure both password fields are identical.');
       return;
     }
     if (form.password.length < 8) {
-      setError('Password must be at least 8 characters');
+      toastError('Password too short', 'Your password must be at least 8 characters long.');
       return;
     }
 
@@ -32,7 +36,7 @@ export default function RegisterPage() {
 
     const data = await res.json();
     if (!res.ok) {
-      setError(data.error ?? 'Registration failed');
+      toastError('Registration failed', data.error ?? 'Please try again.');
       setLoading(false);
       return;
     }
@@ -40,108 +44,85 @@ export default function RegisterPage() {
     router.push('/login?registered=1');
   }
 
-  const update = (field: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    setForm((prev) => ({ ...prev, [field]: e.target.value }));
+  const inputStyle = { paddingLeft: '2.75rem' };
 
   return (
-    <div className="auth-page">
-      <div className="auth-bg">
-        <div className="auth-bg-grid" />
-        <div className="auth-bg-glow" />
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-surface)' }}>
+      {/* Left branding */}
+      <div style={{
+        flex: 1,
+        background: 'linear-gradient(145deg, #1e1b4b 0%, #312e81 40%, #4c1d95 100%)',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        padding: '3rem', position: 'relative', overflow: 'hidden',
+      }}>
+        <div style={{ position: 'absolute', width: '400px', height: '400px', borderRadius: '50%', background: 'rgba(99,102,241,0.15)', filter: 'blur(80px)', top: '-100px', right: '-100px' }} />
+        <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+        <div style={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
+          <div style={{ width: '72px', height: '72px', background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 32px rgba(0,0,0,0.3)', margin: '0 auto 1.5rem' }}>
+            <Shield size={36} color="#fff" strokeWidth={1.5} />
+          </div>
+          <h1 style={{ fontSize: '2.25rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.03em', margin: '0 0 0.5rem' }}>Join PhishGuard</h1>
+          <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '1rem', margin: 0 }}>Build your security awareness today</p>
+        </div>
       </div>
 
-      <div className="auth-container animate-fade-in-up">
-        <div className="auth-logo">
-          <div className="auth-logo-icon">
-            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-              <path d="M16 2L3 8v8c0 7.18 5.56 13.89 13 15.93C23.44 29.89 29 23.18 29 16V8L16 2z" fill="url(#shield-grad2)" />
-              <path d="M12 16l3 3 6-6" stroke="#000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <defs>
-                <linearGradient id="shield-grad2" x1="3" y1="2" x2="29" y2="32" gradientUnits="userSpaceOnUse">
-                  <stop stopColor="#00d4ff"/>
-                  <stop offset="1" stopColor="#7c3aed"/>
-                </linearGradient>
-              </defs>
-            </svg>
-          </div>
+      {/* Right form */}
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '3rem 2rem', background: 'var(--bg-base)' }}>
+        <div style={{ width: '100%', maxWidth: '440px', display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
           <div>
-            <h1 className="auth-logo-title">PhishGuard AI</h1>
-            <p className="auth-logo-sub">Adaptive Security Training</p>
+            <h2 style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 0.5rem', letterSpacing: '-0.02em' }}>Create your account</h2>
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', margin: 0 }}>Start your personalized security awareness training</p>
           </div>
-        </div>
 
-        <div className="auth-card glass-card">
-          <h2 className="auth-heading">Create your account</h2>
-          <p className="auth-subheading">Start your personalized security awareness training</p>
-
-          {error && (
-            <div className="auth-error animate-fade-in">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-              </svg>
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="auth-form">
-            <div className="form-group">
-              <label htmlFor="reg-name" className="form-label">Full name</label>
-              <input id="reg-name" type="text" className="input-field" placeholder="John Smith"
-                value={form.name} onChange={update('name')} required />
-            </div>
-            <div className="form-group">
-              <label htmlFor="reg-email" className="form-label">Work email</label>
-              <input id="reg-email" type="email" className="input-field" placeholder="you@company.com"
-                value={form.email} onChange={update('email')} required autoComplete="email" />
-            </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="reg-password" className="form-label">Password</label>
-                <input id="reg-password" type="password" className="input-field" placeholder="Min. 8 characters"
-                  value={form.password} onChange={update('password')} required autoComplete="new-password" />
-              </div>
-              <div className="form-group">
-                <label htmlFor="reg-confirm" className="form-label">Confirm password</label>
-                <input id="reg-confirm" type="password" className="input-field" placeholder="Repeat password"
-                  value={form.confirmPassword} onChange={update('confirmPassword')} required />
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.125rem' }}>
+            {/* Full name */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <label style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>Full name</label>
+              <div style={{ position: 'relative' }}>
+                <User size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+                <input id="reg-name" type="text" required className="input-field" style={inputStyle} placeholder="John Smith" value={form.name} onChange={update('name')} />
               </div>
             </div>
 
-            <button type="submit" className="btn-primary w-full" disabled={loading} id="register-submit-btn">
-              {loading ? 'Creating account…' : 'Create account'}
+            {/* Email */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <label style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>Work email</label>
+              <div style={{ position: 'relative' }}>
+                <Mail size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+                <input id="reg-email" type="email" required autoComplete="email" className="input-field" style={inputStyle} placeholder="you@company.com" value={form.email} onChange={update('email')} />
+              </div>
+            </div>
+
+            {/* Passwords */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <label style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>Password</label>
+                <div style={{ position: 'relative' }}>
+                  <Lock size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+                  <input id="reg-password" type="password" required autoComplete="new-password" className="input-field" style={inputStyle} placeholder="Min. 8 characters" value={form.password} onChange={update('password')} />
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <label style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>Confirm</label>
+                <div style={{ position: 'relative' }}>
+                  <Lock size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+                  <input id="reg-confirm" type="password" required className="input-field" style={inputStyle} placeholder="Repeat password" value={form.confirmPassword} onChange={update('confirmPassword')} />
+                </div>
+              </div>
+            </div>
+
+            <button type="submit" className="btn-primary" id="register-submit-btn" disabled={loading}
+              style={{ width: '100%', padding: '0.875rem', fontSize: '1rem', marginTop: '0.25rem' }}>
+              {loading ? 'Creating account…' : <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>Create account <ArrowRight size={16} /></span>}
             </button>
           </form>
 
-          <p className="auth-footer-text">
+          <p style={{ textAlign: 'center', fontSize: '0.875rem', color: 'var(--text-secondary)', margin: 0 }}>
             Already have an account?{' '}
-            <Link href="/login" className="auth-link">Sign in</Link>
+            <Link href="/login" style={{ color: 'var(--accent-primary)', fontWeight: 600, textDecoration: 'none' }}>Sign in</Link>
           </p>
         </div>
       </div>
-
-      <style jsx>{`
-        .auth-page { min-height:100vh; display:flex; align-items:center; justify-content:center; position:relative; overflow:hidden; padding:2rem; }
-        .auth-bg { position:fixed; inset:0; z-index:0; }
-        .auth-bg-grid { position:absolute; inset:0; background-image:linear-gradient(rgba(0,212,255,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,0.04) 1px,transparent 1px); background-size:40px 40px; }
-        .auth-bg-glow { position:absolute; top:-20%; left:50%; transform:translateX(-50%); width:600px; height:600px; background:radial-gradient(circle,rgba(124,58,237,0.08) 0%,transparent 70%); border-radius:50%; }
-        .auth-container { position:relative; z-index:1; width:100%; max-width:480px; display:flex; flex-direction:column; gap:2rem; }
-        .auth-logo { display:flex; align-items:center; gap:1rem; justify-content:center; }
-        .auth-logo-icon { width:52px; height:52px; background:var(--bg-card); border:1px solid var(--border-accent); border-radius:var(--radius-md); display:flex; align-items:center; justify-content:center; box-shadow:var(--shadow-glow-cyan); }
-        .auth-logo-title { font-size:1.4rem; font-weight:800; background:linear-gradient(135deg,var(--accent-primary),var(--accent-secondary)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; line-height:1.2; margin:0; }
-        .auth-logo-sub { font-size:0.75rem; color:var(--text-muted); margin:0; }
-        .auth-card { padding:2rem; display:flex; flex-direction:column; gap:1.25rem; }
-        .auth-heading { font-size:1.5rem; font-weight:700; color:var(--text-primary); margin:0; }
-        .auth-subheading { font-size:0.875rem; color:var(--text-secondary); margin:0; margin-top:-0.5rem; }
-        .auth-error { display:flex; align-items:center; gap:0.5rem; padding:0.75rem 1rem; background:var(--color-danger-10); border:1px solid var(--color-danger-20); border-radius:var(--radius-md); color:var(--color-danger); font-size:0.875rem; }
-        .auth-form { display:flex; flex-direction:column; gap:1rem; }
-        .form-group { display:flex; flex-direction:column; gap:0.375rem; }
-        .form-row { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
-        .form-label { font-size:0.8rem; font-weight:600; color:var(--text-secondary); letter-spacing:0.025em; }
-        .auth-footer-text { text-align:center; font-size:0.875rem; color:var(--text-secondary); margin:0; }
-        .auth-link { color:var(--accent-primary); font-weight:600; text-decoration:none; }
-        .auth-link:hover { text-decoration:underline; }
-        .w-full { width:100%; }
-      `}</style>
     </div>
   );
 }

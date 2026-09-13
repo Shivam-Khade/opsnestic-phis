@@ -4,111 +4,135 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { 
-  LayoutDashboard, 
-  Inbox, 
-  History, 
-  UserCircle, 
-  ShieldCheck, 
-  Users, 
-  FileText, 
-  BarChart2, 
-  LogOut,
-  Shield,
-  Building,
-  AlertTriangle
+  LayoutDashboard, Inbox, History, UserCircle, ShieldCheck,
+  Users, FileText, BarChart2, LogOut, Shield, Building, MessageSquareWarning
 } from 'lucide-react';
 import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { ThemeToggle } from '@/components/layout/ThemeToggle';
 
-// Helper for tailwind classes
 function cn(...classes: (string | undefined | null | false)[]) {
   return twMerge(clsx(classes));
 }
-
-import { ThemeToggle } from '@/components/layout/ThemeToggle';
 
 interface SidebarProps {
   user: { name?: string | null; email?: string | null; role?: string };
 }
 
 const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/training', label: 'Training Inbox', icon: Inbox },
-  { href: '/hallucination-training', label: 'Hallucination Training', icon: AlertTriangle },
-  { href: '/history', label: 'History', icon: History },
-  { href: '/profile', label: 'My Profile', icon: UserCircle },
+  { href: '/dashboard',        label: 'Dashboard',       icon: LayoutDashboard },
+  { href: '/training',         label: 'Training Inbox',  icon: Inbox },
+  { href: '/hallucination-chat', label: 'AI Chat Training', icon: MessageSquareWarning },
+  { href: '/history',          label: 'History',         icon: History },
+  { href: '/profile',          label: 'My Profile',      icon: UserCircle },
 ];
 
 const adminItems = [
-  { href: '/admin', label: 'Admin Overview', icon: ShieldCheck },
-  { href: '/admin/users', label: 'Users', icon: Users },
-  { href: '/admin/scenarios', label: 'Scenarios', icon: FileText },
-  { href: '/admin/domains', label: 'Company Domains', icon: Building },
-  { href: '/admin/analytics', label: 'Analytics', icon: BarChart2 },
+  { href: '/admin',            label: 'Admin Overview',  icon: ShieldCheck },
+  { href: '/admin/users',      label: 'Users',           icon: Users },
+  { href: '/admin/scenarios',  label: 'Scenarios',       icon: FileText },
+  { href: '/admin/domains',    label: 'Company Domains', icon: Building },
+  { href: '/admin/analytics',  label: 'Analytics',       icon: BarChart2 },
 ];
 
 export default function Sidebar({ user }: SidebarProps) {
   const pathname = usePathname();
   const isAdmin = user.role === 'admin';
-
   const isActive = (href: string) =>
     href === '/dashboard' ? pathname === href : pathname.startsWith(href);
 
   return (
-    <aside className="w-64 bg-white/80 backdrop-blur-xl border-r border-slate-200/60 flex flex-col h-screen sticky top-0 overflow-y-auto shadow-[4px_0_24px_rgba(0,0,0,0.02)] transition-all duration-300 dark:bg-slate-900/80 dark:border-slate-800">
+    <aside style={{
+      width: '256px',
+      background: 'var(--bg-glass)',
+      backdropFilter: 'blur(24px)',
+      WebkitBackdropFilter: 'blur(24px)',
+      borderRight: '1px solid var(--border-glass)',
+      display: 'flex',
+      flexDirection: 'column',
+      height: '100vh',
+      position: 'sticky',
+      top: 0,
+      overflowY: 'auto',
+      boxShadow: '4px 0 24px rgba(0,0,0,0.04)',
+      transition: 'all 0.3s',
+    }}>
       {/* Logo */}
-      <div className="p-6 flex items-center gap-3 border-b border-slate-100/80 dark:border-slate-800">
-        <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-500/30 ring-1 ring-white/20 dark:ring-white/10">
-          <Shield className="w-5 h-5" strokeWidth={2.5} />
-        </div>
-        <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-300 tracking-tight">
-          PhishGuard
-        </span>
+      <div style={{ padding: '1.5rem 1.25rem', borderBottom: '1px solid var(--border-glass)' }}>
+        <Link href="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', textDecoration: 'none' }}>
+          <div style={{
+            width: '38px', height: '38px',
+            background: 'var(--accent-gradient)',
+            borderRadius: '10px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 4px 12px rgba(79,70,229,0.4)',
+            flexShrink: 0,
+          }}>
+            <Shield size={18} color="#fff" strokeWidth={2.5} />
+          </div>
+          <span style={{
+            fontSize: '1.125rem',
+            fontWeight: 700,
+            background: 'var(--accent-gradient)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+            letterSpacing: '-0.02em',
+          }}>
+            PhishGuard
+          </span>
+        </Link>
       </div>
 
-      {/* Primary nav */}
-      <nav className="flex-1 px-4 py-6 flex flex-col gap-1.5">
+      {/* Navigation */}
+      <nav style={{ flex: 1, padding: '1rem 0.75rem', display: 'flex', flexDirection: 'column', gap: '2px' }}>
         {!isAdmin && (
           <>
-            <p className="px-3 text-xs font-bold tracking-wider text-slate-400 uppercase mb-2">
-              Training
+            <p style={{ padding: '0 0.75rem', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.5rem', marginTop: '0.25rem' }}>
+              Main Menu
             </p>
-
-        
-        {navItems.map((item) => {
-          const active = isActive(item.href);
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 relative overflow-hidden",
-                active 
-                  ? "text-indigo-700 bg-indigo-50/80 shadow-sm ring-1 ring-indigo-100/50 dark:bg-indigo-900/30 dark:text-indigo-300 dark:ring-indigo-800/50" 
-                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-50 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/50"
-              )}
-            >
-              {active && (
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-indigo-600 rounded-r-full" />
-              )}
-              <Icon 
-                className={cn(
-                  "w-5 h-5 transition-transform duration-200", 
-                  active ? "text-indigo-600 dark:text-indigo-400" : "text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300 group-hover:scale-110"
-                )} 
-                strokeWidth={active ? 2.5 : 2} 
-              />
-              <span className="relative z-10">{item.label}</span>
-            </Link>
-          );
-        })}
+            {navItems.map((item) => {
+              const active = isActive(item.href);
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.75rem',
+                    padding: '0.625rem 0.875rem',
+                    borderRadius: '10px',
+                    fontSize: '0.875rem',
+                    fontWeight: active ? 600 : 500,
+                    textDecoration: 'none',
+                    position: 'relative',
+                    transition: 'all 0.2s',
+                    color: active ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                    background: active ? 'var(--accent-primary-10)' : 'transparent',
+                    border: active ? '1px solid var(--accent-primary-20)' : '1px solid transparent',
+                  }}
+                >
+                  {active && (
+                    <div style={{
+                      position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)',
+                      width: '3px', height: '20px',
+                      background: 'var(--accent-gradient)',
+                      borderRadius: '0 3px 3px 0',
+                    }} />
+                  )}
+                  <Icon size={17} strokeWidth={active ? 2.5 : 2} />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
           </>
         )}
 
         {isAdmin && (
-          <div className={isAdmin ? "" : "mt-6"}>
-            <p className="px-3 text-xs font-bold tracking-wider text-slate-400 uppercase mb-2">
+          <>
+            <p style={{ padding: '0 0.75rem', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
               Administration
             </p>
             {adminItems.map((item) => {
@@ -118,55 +142,101 @@ export default function Sidebar({ user }: SidebarProps) {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={cn(
-                    "group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 relative",
-                    active 
-                      ? "text-violet-700 bg-violet-50/80 shadow-sm ring-1 ring-violet-100/50 dark:bg-violet-900/30 dark:text-violet-300 dark:ring-violet-800/50" 
-                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-50 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/50"
-                  )}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.75rem',
+                    padding: '0.625rem 0.875rem',
+                    borderRadius: '10px',
+                    fontSize: '0.875rem',
+                    fontWeight: active ? 600 : 500,
+                    textDecoration: 'none',
+                    position: 'relative',
+                    transition: 'all 0.2s',
+                    color: active ? 'var(--accent-secondary)' : 'var(--text-secondary)',
+                    background: active ? 'rgba(124,58,237,0.1)' : 'transparent',
+                    border: active ? '1px solid rgba(124,58,237,0.2)' : '1px solid transparent',
+                  }}
                 >
                   {active && (
-                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-violet-600 rounded-r-full" />
+                    <div style={{
+                      position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)',
+                      width: '3px', height: '20px',
+                      background: 'linear-gradient(135deg, #7c3aed, #a78bfa)',
+                      borderRadius: '0 3px 3px 0',
+                    }} />
                   )}
-                  <Icon 
-                    className={cn(
-                      "w-5 h-5 transition-transform duration-200", 
-                      active ? "text-violet-600 dark:text-violet-400" : "text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300 group-hover:scale-110"
-                    )} 
-                    strokeWidth={active ? 2.5 : 2} 
-                  />
+                  <Icon size={17} strokeWidth={active ? 2.5 : 2} />
                   <span>{item.label}</span>
                 </Link>
               );
             })}
-          </div>
+          </>
         )}
       </nav>
 
-      {/* User info + logout */}
-      <div className="p-4 m-4 mt-auto bg-slate-50 rounded-2xl border border-slate-100/80 shadow-sm dark:bg-slate-800/50 dark:border-slate-700/50">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-800 flex items-center justify-center text-sm font-bold text-slate-700 dark:text-slate-200 shadow-inner ring-2 ring-white dark:ring-slate-800">
+      {/* User card + controls */}
+      <div style={{
+        margin: '0.75rem',
+        padding: '1rem',
+        background: 'var(--bg-card)',
+        backdropFilter: 'blur(12px)',
+        border: '1px solid var(--border-glass)',
+        borderRadius: '14px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '0.875rem',
+        boxShadow: 'var(--shadow-sm)',
+      }}>
+        {/* User info */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div style={{
+            width: '36px', height: '36px', borderRadius: '50%',
+            background: 'var(--accent-gradient)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '0.875rem', fontWeight: 700, color: '#fff',
+            flexShrink: 0, boxShadow: '0 2px 8px rgba(79,70,229,0.4)',
+          }}>
             {user.name?.[0]?.toUpperCase() ?? 'U'}
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-slate-900 dark:text-slate-200 truncate">
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <p style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {user.name ?? 'User'}
             </p>
-            <p className="text-xs text-slate-500 dark:text-slate-400 truncate font-medium">
+            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {user.email}
             </p>
           </div>
         </div>
-        
-        <div className="flex flex-col gap-2 w-full">
+
+        {/* Controls */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           <ThemeToggle />
           <button
             onClick={() => signOut({ callbackUrl: '/login' })}
-            className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-sm font-medium text-slate-600 bg-white border border-slate-200 hover:bg-red-50 hover:text-red-600 hover:border-red-100 transition-all duration-200 group dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-red-900/30 dark:hover:text-red-400 dark:hover:border-red-900/50"
-            title="Sign out"
+            style={{
+              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              gap: '0.5rem', padding: '0.5rem 0.75rem', borderRadius: '8px',
+              fontSize: '0.8125rem', fontWeight: 500, cursor: 'pointer',
+              color: 'var(--text-secondary)',
+              background: 'transparent',
+              border: '1px solid var(--border-default)',
+              transition: 'all 0.2s',
+            }}
+            onMouseEnter={e => {
+              const btn = e.currentTarget;
+              btn.style.background = 'var(--color-danger-10)';
+              btn.style.color = 'var(--color-danger)';
+              btn.style.borderColor = 'rgba(239,68,68,0.3)';
+            }}
+            onMouseLeave={e => {
+              const btn = e.currentTarget;
+              btn.style.background = 'transparent';
+              btn.style.color = 'var(--text-secondary)';
+              btn.style.borderColor = 'var(--border-default)';
+            }}
           >
-            <LogOut className="w-4 h-4 group-hover:-translate-x-1 transition-transform duration-200" />
+            <LogOut size={14} />
             <span>Sign Out</span>
           </button>
         </div>

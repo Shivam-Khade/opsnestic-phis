@@ -55,7 +55,7 @@ export default async function AdminAnalyticsPage() {
           </div>
         </div>
         <p className="pipeline-note">
-          This table is the audit trail for the proposed AI hallucination-mitigation pipeline.
+          This table is the audit trail for the proposed AI pipeline.
           All AI-generated scenarios pass through a deterministic rule-check layer before
           being served to trainees. Failures trigger regeneration; persistent failures use curated fallbacks.
         </p>

@@ -61,7 +61,6 @@ export async function getScenarioById(id: number) {
 export async function getFallbackScenario(
   categorySlug: string,
   difficultySlug: string,
-  forceHallucination?: boolean,
   recentSubjects?: string[]
 ): Promise<ScenarioDraft> {
   let query = db
@@ -72,8 +71,7 @@ export async function getFallbackScenario(
     .where('s.source', '=', 'fallback')
     .where('s.validation_status', '=', 'passed')
     .where('c.slug', '=', categorySlug)
-    .where('d.slug', '=', difficultySlug)
-    .where('s.is_hallucinated', '=', forceHallucination ? 1 : 0);
+    .where('d.slug', '=', difficultySlug);
 
   if (recentSubjects && recentSubjects.length > 0) {
     query = query.where('s.subject', 'not in', recentSubjects);
@@ -90,8 +88,7 @@ export async function getFallbackScenario(
       .selectFrom('scenarios')
       .selectAll()
       .where('source', '=', 'fallback')
-      .where('validation_status', '=', 'passed')
-      .where('is_hallucinated', '=', forceHallucination ? 1 : 0);
+      .where('validation_status', '=', 'passed');
 
     if (recentSubjects && recentSubjects.length > 0) {
       anyQuery = anyQuery.where('subject', 'not in', recentSubjects);
@@ -131,7 +128,6 @@ function scenarioRowToDraft(scenario: any, indicators: any[]): ScenarioDraft {
     subject: scenario.subject,
     body: scenario.body,
     is_phishing: Boolean(scenario.is_phishing),
-    is_hallucinated: Boolean(scenario.is_hallucinated),
     indicators: indicators.map((i) => ({
       type: i.indicator_type,
       present: Boolean(i.is_present),
@@ -190,7 +186,7 @@ export async function generateAndPersistScenario(
 
   const result = await generateWithValidation(
     () => provider.generateScenario(generatorParams),
-    () => getFallbackScenario(params.category, params.difficulty, params.forceHallucination, recentSubjects)
+    () => getFallbackScenario(params.category, params.difficulty, recentSubjects)
   );
 
   const { draft, validationReport, retryCount, usedFallback } = result;
@@ -206,7 +202,6 @@ export async function generateAndPersistScenario(
       subject: draft.subject,
       body: draft.body,
       is_phishing: draft.is_phishing ? 1 : 0,
-      is_hallucinated: draft.is_hallucinated ? 1 : 0,
       source: usedFallback ? 'fallback' : 'ai_generated',
       validation_status: validationReport.passed ? 'passed' : 'failed',
       explanation: draft.explanation,

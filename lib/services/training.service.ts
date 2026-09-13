@@ -26,7 +26,7 @@ export async function getOrCreateSession(userId: number): Promise<number> {
 }
 
 // ─── Get the next scenario for a user (via adaptive engine) ──────────────────
-export async function getNextScenarioForUser(userId: number, forceHallucination?: boolean): Promise<{
+export async function getNextScenarioForUser(userId: number): Promise<{
   scenarioId: number;
   usedFallback: boolean;
   adaptiveSelection: { category: string; difficulty: string; indicatorBias: string[] };
@@ -58,8 +58,7 @@ export async function getNextScenarioForUser(userId: number, forceHallucination?
     category: selection.category,
     difficulty: selection.difficulty,
     indicatorBias: selection.indicatorBias,
-    forcePhishing: forceHallucination !== undefined ? false : Math.random() < 0.5,
-    forceHallucination,
+    forcePhishing: Math.random() < 0.5,
   });
 
   return { scenarioId, usedFallback, adaptiveSelection: selection };
