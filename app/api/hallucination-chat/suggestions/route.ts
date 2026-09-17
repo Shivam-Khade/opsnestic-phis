@@ -24,11 +24,11 @@ export async function GET() {
     });
     
     const prompt = `Generate exactly 3 complex, specific, and factual questions that a user could ask an AI to test if the AI hallucinates.
-The questions MUST be strictly related to the technical field (e.g., software engineering, DevOps, cloud architecture, programming, or specific software features). 
+The questions MUST be strictly related to ANY field of Computer Engineering (e.g., software engineering, hardware design, computer architecture, operating systems, embedded systems, networking, or artificial intelligence). 
 DO NOT include questions about medical, history, biology, or other non-tech fields.
-Do not use generic questions. Make them sound like a professional software engineer, DevOps engineer, or systems architect is asking.
+Do not use generic questions. Make them sound like a professional computer engineer, systems architect, or hardware engineer is asking.
 Return ONLY a JSON array of strings. No markdown formatting, no code blocks, just the JSON array.
-Example: ["How do I configure the OSPF totally stubby area on a Cisco Nexus 7000?", "What is the exact syntax to implement EKS Auto Mode using the AWS CDK?"]`;
+Example: ["How do I configure the OSPF totally stubby area on a Cisco Nexus 7000?", "What is the primary advantage of a Tomasulo's algorithm implementation with a reorder buffer over a simple scoreboard?"]`;
 
     const completion = await openai.chat.completions.create({
       model: 'meta-llama/llama-3.3-70b-instruct',

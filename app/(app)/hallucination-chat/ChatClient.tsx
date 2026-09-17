@@ -15,6 +15,7 @@ type ChatHistory = {
   user_decision: string | null;
   is_correct: number | null;
   created_at: Date;
+  user_reasoning?: string | null;
 };
 
 export default function ChatClient({ history }: { history: ChatHistory[] }) {
@@ -23,11 +24,12 @@ export default function ChatClient({ history }: { history: ChatHistory[] }) {
   const [isLoading, setIsLoading] = useState(false);
   const [wasHallucinated, setWasHallucinated] = useState<boolean | null>(null);
   const [step, setStep] = useState<'chat' | 'evaluate' | 'result'>('chat');
-  const [decision, setDecision] = useState<'hallucination' | 'factual' | null>(null);
-  const [reasoning, setReasoning] = useState('');
+  const [chunks, setChunks] = useState<string[]>([]);
+  const [chunkEvaluations, setChunkEvaluations] = useState<{decision: 'hallucination' | 'factual' | null, reasoning: string}[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [resultData, setResultData] = useState<{ isCorrect: boolean, actualHallucination?: boolean } | null>(null);
+  const [resultData, setResultData] = useState<{ label: 'Correct' | 'Partial' | 'Incorrect', scoreText: string, chunkResults: { text: string, actualHallucination: boolean, userCorrect: boolean, feedback: string }[] } | null>(null);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [selectedSession, setSelectedSession] = useState<ChatHistory | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -72,6 +74,9 @@ export default function ChatClient({ history }: { history: ChatHistory[] }) {
       const data = await res.json();
       setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
       setWasHallucinated(data.was_hallucinated);
+      const parsedChunks = (data.response || '').split(/\n\n+/).filter((c: string) => c.trim().length > 0);
+      setChunks(parsedChunks);
+      setChunkEvaluations(parsedChunks.map(() => ({ decision: null, reasoning: '' })));
       setStep('evaluate');
     } catch {
       toastError('Request failed', 'Could not get an AI response. Please try again.');
@@ -82,23 +87,34 @@ export default function ChatClient({ history }: { history: ChatHistory[] }) {
   };
 
   const handleSubmitDecision = async () => {
-    if (!decision || !reasoning.trim()) return;
+    // Check if all chunks have a decision and reasoning
+    const isComplete = chunkEvaluations.every(e => e.decision && e.reasoning.trim().length > 0);
+    if (!isComplete) return;
+
     setIsSubmitting(true);
     try {
-      // Find the last user message and the last assistant message
       const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content || '';
-      const lastAssistantMsg = [...messages].reverse().find(m => m.role === 'assistant')?.content || '';
       
+      const payloadChunks = chunks.map((text, i) => ({
+        text,
+        user_decision: chunkEvaluations[i].decision,
+        user_reasoning: chunkEvaluations[i].reasoning
+      }));
+
       const res = await fetch('/api/hallucination-chat/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: lastUserMsg, response: lastAssistantMsg, was_hallucinated: wasHallucinated, user_decision: decision, user_reasoning: reasoning })
+        body: JSON.stringify({ query: lastUserMsg, chunks: payloadChunks, was_hallucinated: wasHallucinated })
       });
       if (!res.ok) throw new Error('Failed to submit decision');
       const data = await res.json();
-      setResultData({ isCorrect: data.is_correct, actualHallucination: data.actual_hallucination ?? wasHallucinated });
+      setResultData({
+        label: data.label,
+        scoreText: data.scoreText,
+        chunkResults: data.chunkResults
+      });
       setStep('result');
-      router.refresh(); // Refresh history from server
+      router.refresh();
     } catch {
       toastError('Submission failed', 'Error saving your evaluation. Please try again.');
     } finally {
@@ -108,12 +124,12 @@ export default function ChatClient({ history }: { history: ChatHistory[] }) {
 
   const handleReset = () => {
     setMessages([]); setInput(''); setWasHallucinated(null); setStep('chat');
-    setDecision(null); setReasoning(''); setResultData(null);
+    setChunks([]); setChunkEvaluations([]); setResultData(null);
   };
 
   const handleContinue = () => {
     setWasHallucinated(null); setStep('chat');
-    setDecision(null); setReasoning(''); setResultData(null);
+    setChunks([]); setChunkEvaluations([]); setResultData(null);
   };
 
   /* ── Shared glass styles ── */
@@ -273,78 +289,105 @@ export default function ChatClient({ history }: { history: ChatHistory[] }) {
         <AnimatePresence>
           {step !== 'chat' && (
             <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
-              style={{ width: '360px', display: 'flex', flexDirection: 'column', gap: '1rem', flexShrink: 0 }}>
+              style={{ width: '420px', display: 'flex', flexDirection: 'column', gap: '1rem', flexShrink: 0, height: '100%', overflowY: 'auto', paddingRight: '0.5rem' }}>
               {step === 'evaluate' && (
-                <div style={{ ...glassPanel, padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
-                    <div style={{ width: '34px', height: '34px', background: 'var(--accent-primary-10)', border: '1px solid var(--accent-primary-20)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Search size={16} style={{ color: 'var(--accent-primary)' }} />
-                    </div>
-                    <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Verify the Claim</h3>
-                  </div>
-                  <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6 }}>
-                    Search the web to verify the AI&apos;s response. Was it factual, or did it hallucinate?
-                  </p>
-
-                  {/* Decision radios */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
-                    {[
-                      { value: 'factual' as const, label: "It's Factual", icon: CheckCircle2, color: '#10b981', bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.25)' },
-                      { value: 'hallucination' as const, label: 'It Hallucinated', icon: AlertTriangle, color: '#ef4444', bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.25)' },
-                    ].map((opt) => {
-                      const Icon = opt.icon;
-                      const selected = decision === opt.value;
-                      return (
-                        <label key={opt.value} style={{ display: 'flex', alignItems: 'center', padding: '0.875rem 1rem', border: `1.5px solid ${selected ? opt.border : 'var(--border-default)'}`, borderRadius: '12px', cursor: 'pointer', background: selected ? opt.bg : 'transparent', transition: 'all 0.2s' }}>
-                          <input type="radio" name="decision" value={opt.value} className="sr-only" onChange={() => setDecision(opt.value)} style={{ display: 'none' }} />
-                          <Icon size={18} style={{ marginRight: '0.75rem', color: selected ? opt.color : 'var(--text-muted)', flexShrink: 0 }} />
-                          <span style={{ fontWeight: 600, fontSize: '0.9rem', color: selected ? opt.color : 'var(--text-primary)' }}>{opt.label}</span>
-                        </label>
-                      );
-                    })}
+                <>
+                  <div style={{ ...glassPanel, padding: '1.25rem', position: 'sticky', top: 0, zIndex: 10, background: 'var(--bg-glass)', backdropFilter: 'blur(20px)' }}>
+                     <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.125rem' }}>Evaluate the Response</h3>
+                     <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', margin: 0 }}>Review each chunk carefully. Some parts might be true while others are hallucinations!</p>
                   </div>
 
-                  {/* Reasoning */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    <label style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Reasoning / Proof</label>
-                    <textarea value={reasoning} onChange={e => setReasoning(e.target.value)}
-                      placeholder="e.g. I checked Wikipedia and the actual date is…"
-                      style={{ width: '100%', background: 'var(--bg-base)', border: '1px solid var(--border-default)', borderRadius: '12px', padding: '0.75rem', fontSize: '0.875rem', color: 'var(--text-primary)', resize: 'none', height: '96px', outline: 'none', fontFamily: 'var(--font-sans)', transition: 'border-color 0.2s', boxSizing: 'border-box' }}
-                      onFocus={e => (e.target.style.borderColor = 'var(--accent-primary)')}
-                      onBlur={e => (e.target.style.borderColor = 'var(--border-default)')}
-                    />
-                  </div>
-
-                  <button className="btn-primary" style={{ width: '100%', padding: '0.875rem' }}
-                    onClick={handleSubmitDecision} disabled={!decision || !reasoning.trim() || isSubmitting}>
-                    {isSubmitting ? 'Submitting…' : 'Submit Evaluation'}
+                  {chunks.map((chunk, idx) => {
+                    const evalState = chunkEvaluations[idx];
+                    return (
+                      <div key={idx} style={{ ...glassPanel, padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                        <div style={{ padding: '0.875rem', background: 'var(--bg-base)', border: '1px solid var(--border-default)', borderRadius: '12px', fontSize: '0.9rem', lineHeight: 1.6, color: 'var(--text-primary)' }}>
+                          <span style={{ fontWeight: 700, color: 'var(--accent-primary)', marginRight: '0.5rem' }}>Chunk {idx + 1}:</span>
+                          {chunk}
+                        </div>
+                        
+                        {/* Decision Radios */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+                          {[
+                            { value: 'factual' as const, label: "It's Factual", icon: CheckCircle2, color: '#10b981', bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.25)' },
+                            { value: 'hallucination' as const, label: 'It Hallucinated', icon: AlertTriangle, color: '#ef4444', bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.25)' },
+                          ].map((opt) => {
+                            const Icon = opt.icon;
+                            const selected = evalState.decision === opt.value;
+                            return (
+                              <label key={opt.value} style={{ display: 'flex', alignItems: 'center', padding: '0.875rem 1rem', border: `1.5px solid ${selected ? opt.border : 'var(--border-default)'}`, borderRadius: '12px', cursor: 'pointer', background: selected ? opt.bg : 'transparent', transition: 'all 0.2s' }}>
+                                <input type="radio" name={`decision-${idx}`} value={opt.value} className="sr-only" style={{ display: 'none' }}
+                                  onChange={() => {
+                                    const newEvals = [...chunkEvaluations];
+                                    newEvals[idx].decision = opt.value;
+                                    setChunkEvaluations(newEvals);
+                                  }} 
+                                />
+                                <Icon size={18} style={{ marginRight: '0.75rem', color: selected ? opt.color : 'var(--text-muted)', flexShrink: 0 }} />
+                                <span style={{ fontWeight: 600, fontSize: '0.9rem', color: selected ? opt.color : 'var(--text-primary)' }}>{opt.label}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                        
+                        {/* Reasoning */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                          <label style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Reasoning / Proof</label>
+                          <textarea 
+                            value={evalState.reasoning}
+                            onChange={e => {
+                              const newEvals = [...chunkEvaluations];
+                              newEvals[idx].reasoning = e.target.value;
+                              setChunkEvaluations(newEvals);
+                            }}
+                            placeholder="e.g. I checked Wikipedia and..."
+                            style={{ width: '100%', background: 'var(--bg-base)', border: '1px solid var(--border-default)', borderRadius: '12px', padding: '0.75rem', fontSize: '0.875rem', color: 'var(--text-primary)', resize: 'none', height: '80px', outline: 'none', transition: 'border-color 0.2s', boxSizing: 'border-box' }}
+                            onFocus={e => (e.target.style.borderColor = 'var(--accent-primary)')}
+                            onBlur={e => (e.target.style.borderColor = 'var(--border-default)')}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                  
+                  <button className="btn-primary" style={{ width: '100%', padding: '1rem', marginTop: '0.5rem', position: 'sticky', bottom: 0, zIndex: 10, boxShadow: '0 -10px 20px rgba(0,0,0,0.1)' }}
+                    onClick={handleSubmitDecision} 
+                    disabled={chunkEvaluations.some(e => !e.decision || !e.reasoning.trim()) || isSubmitting}>
+                    {isSubmitting ? 'Submitting…' : 'Submit All Evaluations'}
                   </button>
-                </div>
+                </>
               )}
 
               {step === 'result' && resultData && (
-                <div style={{ ...glassPanel, padding: '1.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '1rem', borderColor: resultData.isCorrect ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)' }}>
-                  <div style={{ width: '64px', height: '64px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: resultData.isCorrect ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', boxShadow: `0 0 0 8px ${resultData.isCorrect ? 'rgba(16,185,129,0.06)' : 'rgba(239,68,68,0.06)'}` }}>
-                    {resultData.isCorrect
-                      ? <CheckCircle2 size={32} style={{ color: '#10b981' }} />
-                      : <XCircle size={32} style={{ color: '#ef4444' }} />}
+                <div style={{ ...glassPanel, padding: '1.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '1rem', borderColor: resultData.label === 'Correct' ? 'rgba(16,185,129,0.25)' : resultData.label === 'Partial' ? 'rgba(234,179,8,0.25)' : 'rgba(239,68,68,0.25)' }}>
+                  <div style={{ width: '64px', height: '64px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: resultData.label === 'Correct' ? 'rgba(16,185,129,0.1)' : resultData.label === 'Partial' ? 'rgba(234,179,8,0.1)' : 'rgba(239,68,68,0.1)', boxShadow: `0 0 0 8px ${resultData.label === 'Correct' ? 'rgba(16,185,129,0.06)' : resultData.label === 'Partial' ? 'rgba(234,179,8,0.06)' : 'rgba(239,68,68,0.06)'}` }}>
+                    {resultData.label === 'Correct' ? <CheckCircle2 size={32} style={{ color: '#10b981' }} /> :
+                     resultData.label === 'Partial' ? <AlertTriangle size={32} style={{ color: '#eab308' }} /> :
+                     <XCircle size={32} style={{ color: '#ef4444' }} />}
                   </div>
                   <div>
                     <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 0.5rem', letterSpacing: '-0.02em' }}>
-                      {resultData.isCorrect ? 'Correct!' : 'Incorrect'}
+                      {resultData.label}!
                     </h3>
                     <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6 }}>
-                      {resultData.isCorrect
-                        ? 'Great job verifying the facts! You successfully identified the nature of the response.'
-                        : `Your evaluation was incorrect. The AI was actually ${resultData.actualHallucination ? 'hallucinating.' : 'telling the truth.'}`}
+                      {resultData.scoreText}
                     </p>
                   </div>
-                  <div style={{ width: '100%', padding: '1rem', background: 'var(--bg-hover)', borderRadius: '12px', border: '1px solid var(--border-glass)', textAlign: 'left' }}>
-                    <p style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)', margin: '0 0 0.5rem' }}>Actual Status</p>
-                    <p style={{ fontSize: '0.9375rem', fontWeight: 700, color: resultData.actualHallucination ? '#ef4444' : '#10b981', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      {resultData.actualHallucination ? <AlertTriangle size={16} /> : <CheckCircle2 size={16} />}
-                      {resultData.actualHallucination ? (wasHallucinated === resultData.actualHallucination ? 'Intentional Hallucination' : 'Accidental Hallucination') : 'Factual Response'}
-                    </p>
+                  
+                  <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '0.75rem', textAlign: 'left', marginTop: '0.5rem' }}>
+                    {resultData.chunkResults.map((res, i) => (
+                       <div key={i} style={{ padding: '1rem', background: 'var(--bg-hover)', borderRadius: '12px', border: `1px solid ${res.userCorrect ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}` }}>
+                          <p style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', margin: '0 0 0.5rem' }}>Chunk {i + 1} - {res.userCorrect ? '✅ You got this right' : '❌ You missed this'}</p>
+                          <p style={{ fontSize: '0.85rem', color: 'var(--text-primary)', margin: '0 0 0.75rem', opacity: 0.9 }}>{res.text.length > 100 ? res.text.substring(0, 100) + '...' : res.text}</p>
+                          <p style={{ fontSize: '0.875rem', color: res.actualHallucination ? '#ef4444' : '#10b981', margin: '0 0 0.5rem', display: 'flex', alignItems: 'center', gap: '0.375rem', fontWeight: 600 }}>
+                            {res.actualHallucination ? <AlertTriangle size={14} /> : <CheckCircle2 size={14} />}
+                            {res.actualHallucination ? 'Actual Hallucination' : 'Factual'}
+                          </p>
+                          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5, background: 'rgba(0,0,0,0.1)', padding: '0.5rem', borderRadius: '8px' }}>
+                            <strong style={{color: 'var(--text-primary)'}}>AI Judge:</strong> {res.feedback}
+                          </p>
+                       </div>
+                    ))}
                   </div>
                 </div>
               )}
@@ -359,15 +402,73 @@ export default function ChatClient({ history }: { history: ChatHistory[] }) {
           <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--bg-base)', borderRadius: '20px', width: '100%', maxWidth: '900px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative', boxShadow: '0 25px 60px rgba(0,0,0,0.25), 0 8px 20px rgba(0,0,0,0.15)', border: '1px solid var(--border-glass)' }}>
             {/* Header */}
             <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border-glass)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-glass)' }}>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Session History</h2>
-              <button onClick={() => setShowHistoryModal(false)} style={{ background: 'var(--bg-hover)', border: 'none', color: 'var(--text-secondary)', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                {selectedSession && (
+                  <button onClick={() => setSelectedSession(null)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '0.25rem' }}>
+                    <RotateCcw size={16} style={{ transform: 'scaleX(-1)' }} />
+                  </button>
+                )}
+                {selectedSession ? 'Session Details' : 'Session History'}
+              </h2>
+              <button onClick={() => { setShowHistoryModal(false); setSelectedSession(null); }} style={{ background: 'var(--bg-hover)', border: 'none', color: 'var(--text-secondary)', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }}>
                 <X size={16} />
               </button>
             </div>
             
             {/* Body */}
             <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
-              {history.length === 0 ? (
+              {selectedSession ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                  <div style={{ padding: '1.25rem', background: 'var(--bg-surface)', borderRadius: '12px', border: '1px solid var(--border-default)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                      <h3 style={{ margin: 0, fontSize: '1.125rem', color: 'var(--text-primary)' }}>User Query</h3>
+                      <span className="badge" style={{ background: selectedSession.is_correct === 1 ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', color: selectedSession.is_correct === 1 ? '#10b981' : '#ef4444' }}>
+                        {selectedSession.is_correct === 1 ? '✓ Correct' : '✗ Incorrect'}
+                      </span>
+                    </div>
+                    <p style={{ fontSize: '1rem', color: 'var(--text-secondary)', margin: 0 }}>{selectedSession.query}</p>
+                  </div>
+                  
+                  <h4 style={{ fontSize: '1rem', color: 'var(--text-primary)', margin: '0.5rem 0 0', paddingLeft: '0.25rem' }}>Chunk Breakdown</h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    {(() => {
+                      let parsedChunks = [];
+                      try {
+                        if (selectedSession.user_reasoning) {
+                          parsedChunks = JSON.parse(selectedSession.user_reasoning);
+                        }
+                      } catch (e) {
+                        return <p style={{ color: 'var(--text-muted)' }}>Could not load detailed evaluation data.</p>;
+                      }
+                      
+                      if (!Array.isArray(parsedChunks) || parsedChunks.length === 0) {
+                         return <p style={{ color: 'var(--text-muted)' }}>No detailed evaluation data available for this session.</p>;
+                      }
+
+                      return parsedChunks.map((res: any, i: number) => (
+                        <div key={i} style={{ padding: '1.25rem', background: 'var(--bg-card)', borderRadius: '12px', border: `1px solid ${res.userCorrect ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)'}`, boxShadow: 'var(--shadow-sm)' }}>
+                           <p style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', margin: '0 0 0.75rem' }}>Chunk {i + 1} - {res.userCorrect ? '✅ You got this right' : '❌ You missed this'}</p>
+                           <p style={{ fontSize: '0.9rem', color: 'var(--text-primary)', margin: '0 0 1rem', lineHeight: 1.6 }}>{res.text}</p>
+                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                             <span style={{ fontSize: '0.8125rem', padding: '0.25rem 0.5rem', borderRadius: '6px', background: res.actualHallucination ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)', color: res.actualHallucination ? '#ef4444' : '#10b981', display: 'flex', alignItems: 'center', gap: '0.375rem', fontWeight: 600 }}>
+                               {res.actualHallucination ? <AlertTriangle size={14} /> : <CheckCircle2 size={14} />}
+                               Actual: {res.actualHallucination ? 'Hallucination' : 'Factual'}
+                             </span>
+                           </div>
+                           {res.feedback && res.feedback !== 'The AI judge could not evaluate this specific chunk.' && (
+                             <div style={{ padding: '0.875rem', background: 'var(--bg-base)', borderRadius: '8px', border: '1px solid var(--border-default)', display: 'flex', gap: '0.5rem' }}>
+                               <Bot size={16} style={{ color: 'var(--accent-primary)', flexShrink: 0, marginTop: '2px' }} />
+                               <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
+                                 <strong style={{color: 'var(--text-primary)'}}>AI Judge:</strong> {res.feedback}
+                               </p>
+                             </div>
+                           )}
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                </div>
+              ) : history.length === 0 ? (
                 <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
                   <History size={48} style={{ opacity: 0.5, marginBottom: '1rem' }} />
                   <p>No chat history yet. Start exploring!</p>
@@ -375,7 +476,7 @@ export default function ChatClient({ history }: { history: ChatHistory[] }) {
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                   {history.map((h) => (
-                    <div key={h.id} style={{ padding: '1.25rem', border: '1px solid var(--border-glass)', borderRadius: '12px', background: 'var(--bg-card)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <div key={h.id} onClick={() => setSelectedSession(h)} className="history-card" style={{ padding: '1.25rem', border: '1px solid var(--border-glass)', borderRadius: '12px', background: 'var(--bg-card)', display: 'flex', flexDirection: 'column', gap: '0.75rem', cursor: 'pointer', transition: 'all 0.2s' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
                         <div style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--text-primary)' }}>
                           <span style={{ color: 'var(--text-muted)', fontWeight: 700, marginRight: '0.5rem' }}>Q:</span>
@@ -443,6 +544,11 @@ export default function ChatClient({ history }: { history: ChatHistory[] }) {
           border-color: var(--accent-primary);
           color: var(--text-primary);
           background: var(--bg-base);
+        }
+        .history-card:hover {
+          border-color: var(--accent-primary);
+          transform: translateY(-2px);
+          box-shadow: var(--shadow-md);
         }
       `}</style>
     </div>

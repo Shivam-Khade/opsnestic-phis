@@ -15,8 +15,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Messages array is required' }, { status: 400 });
     }
 
-    // Determine if it should be hallucinated (50% probability)
-    const isHallucinated = Math.random() < 0.5;
+    // Determine the type of response (factual, partially hallucinated, fully hallucinated)
+    const rand = Math.random();
+    let hallucinationMode: 'factual' | 'partial' | 'full' = 'factual';
+    if (rand < 0.25) {
+      hallucinationMode = 'factual';
+    } else if (rand < 0.75) {
+      hallucinationMode = 'partial';
+    } else {
+      hallucinationMode = 'full';
+    }
+    const isHallucinated = hallucinationMode !== 'factual';
 
     // We'll use OpenRouter to access better models as requested.
     const apiKey = process.env.OPENROUTER_API_KEY;
@@ -40,14 +49,30 @@ export async function POST(req: Request) {
       modelName = 'meta-llama/llama-3.3-70b-instruct';
     }
 
-    let systemPrompt = `You are a helpful AI assistant. You answer user queries clearly and concisely.`;
+    let systemPrompt = '';
 
-    if (isHallucinated) {
+    if (hallucinationMode === 'partial') {
       systemPrompt = `You are an AI assistant. The user will ask you a query.
 [CRITICAL INSTRUCTION: COMPLEX HALLUCINATION]
-You MUST intentionally hallucinate in your response. The hallucination should NOT be trivially obvious (e.g., don't say the sky is green). It should be a subtle but completely false factual error, historical event, scientific concept, or non-existent entity. The goal is to make the user have to search the web to verify if your claim is true or not. Speak with absolute confidence. Provide convincing but fabricated details, names, or dates.`;
+You MUST intentionally hallucinate in your response. The hallucination should NOT be trivially obvious (e.g., don't say the sky is green). It should be a subtle but completely false factual error, historical event, scientific concept, or non-existent entity. The goal is to make the user have to search the web to verify if your claim is true or not. Speak with absolute confidence. Provide convincing but fabricated details, names, or dates.
+[CRITICAL INSTRUCTION: FORMATTING]
+You MUST divide your response into exactly 2 or 3 distinct paragraphs separated by a double newline (\\n\\n). Do NOT use bullet points, numbered lists, or markdown formatting like bold/italics. Just plain paragraphs.
+[CRITICAL INSTRUCTION: PARTIAL HALLUCINATION]
+You must write exactly 2 or 3 paragraphs. EXACTLY ONE paragraph must contain a major hallucination. The OTHER paragraphs must be 100% factual and contain NO hallucinations. Do not spread the hallucination across multiple paragraphs.`;
+    } else if (hallucinationMode === 'full') {
+      systemPrompt = `You are an AI assistant. The user will ask you a query.
+[CRITICAL INSTRUCTION: COMPLEX HALLUCINATION]
+You MUST intentionally hallucinate heavily in your response. The hallucinations should NOT be trivially obvious. They should be subtle but completely false factual errors, historical events, scientific concepts, or non-existent entities. The goal is to make the user have to search the web to verify if your claim is true or not. Speak with absolute confidence. Provide convincing but fabricated details, names, or dates.
+[CRITICAL INSTRUCTION: FORMATTING]
+You MUST divide your response into exactly 2 or 3 distinct paragraphs separated by a double newline (\\n\\n). Do NOT use bullet points, numbered lists, or markdown formatting like bold/italics. Just plain paragraphs.
+[CRITICAL INSTRUCTION: FULL HALLUCINATION]
+EVERY SINGLE PARAGRAPH you write MUST contain at least one major factual hallucination. There should be NO fully factual paragraphs.`;
     } else {
-      systemPrompt = `You are a helpful and factual AI assistant. You answer user queries clearly, accurately, and concisely. DO NOT hallucinate.`;
+      systemPrompt = `You are a helpful and factual AI assistant. You answer user queries clearly, accurately, and concisely. DO NOT hallucinate.
+[CRITICAL INSTRUCTION: FORMATTING]
+You MUST divide your response into exactly 2 or 3 distinct paragraphs separated by a double newline (\\n\\n). Do NOT use bullet points, numbered lists, or markdown formatting like bold/italics. Just plain paragraphs.
+[CRITICAL INSTRUCTION: FACTUAL ONLY]
+EVERY SINGLE PARAGRAPH MUST be completely factual and correct.`;
     }
 
     const completion = await openai.chat.completions.create({
