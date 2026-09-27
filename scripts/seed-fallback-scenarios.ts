@@ -38,10 +38,10 @@ IT Security Team`,
     category: 'invoice', difficulty: 'beginner', is_phishing: true,
     sender: 'billing@vendor-invoices-noreply.test',
     recipient: 'employee@company-training.local',
-    subject: 'Invoice #INV-9847 OVERDUE - Immediate Payment Required',
+    subject: 'Invoice #INV-2025-XYZ OVERDUE - Immediate Payment Required',
     body: `Hello,
 
-Your invoice #INV-9847 for $4,850.00 is now 30 days overdue. Failure to pay within 48 hours will result in legal action and additional penalties.
+Your invoice #INV-2025-XYZ for $6,200.00 is now 15 days overdue. Failure to pay within 48 hours will result in legal action and additional penalties.
 
 Please click the link below to pay immediately:
 http://pay-invoice-now.phishing-site.test/pay?id=9847
@@ -65,10 +65,10 @@ Global Vendor Services`,
     category: 'hr_communication', difficulty: 'beginner', is_phishing: false,
     sender: 'hr@company-training.local',
     recipient: 'employee@company-training.local',
-    subject: 'Q3 2024 Benefits Enrollment Window — Opens Monday',
+    subject: 'Q1 2025 Benefits Enrollment Window — Opens Monday',
     body: `Hi Team,
 
-This is a reminder that the Q3 2024 Benefits Enrollment window opens this Monday, September 2nd, and closes Friday, September 6th at 5:00 PM.
+This is a reminder that the Q1 2025 Benefits Enrollment window opens this Monday, February 3rd, and closes Friday, February 7th at 5:00 PM.
 
 To update your benefits selections, please log in to the HR portal at https://hr.company-training.local and navigate to Benefits → Open Enrollment. No link-clicking required — go directly to the portal as you normally would.
 
@@ -99,10 +99,10 @@ Company Training Inc.`,
     category: 'shared_document', difficulty: 'intermediate', is_phishing: true,
     sender: 'notifications@onedrive-sharingservice.test',
     recipient: 'employee@company-training.local',
-    subject: 'John Martinez shared "Q4 Budget Forecast.xlsx" with you',
+    subject: 'David Smith shared "Q1 Strategic Plan.docx" with you',
     body: `Hi,
 
-John Martinez (jmartinez@company-training.local) has shared a document with you via Microsoft OneDrive.
+David Smith (dsmith@company-training.local) has shared a document with you via Microsoft OneDrive.
 
 Document: Q4 Budget Forecast.xlsx
 Shared: Today at 2:34 PM
@@ -213,7 +213,7 @@ Please process this today and confirm by reply email. Do not discuss this with a
 I'll explain everything when I'm back. Please treat this as highest priority.
 
 Thanks,
-Robert Chen
+Marcus Vane
 CEO, Company Training Inc.`,
     explanation: `This is a sophisticated Business Email Compromise (BEC) / CEO Fraud phishing attack. Key red flags: (1) The sender domain is "company-traininggroup.test" — one character different from "company-training.local". This subtle domain spoof is the main technical indicator. (2) The CEO claiming to be unavailable ("in a board meeting, cannot take calls") prevents verification. (3) The "confidentiality" request prevents you from alerting colleagues. (4) The extreme urgency ("today") prevents careful thought. (5) Wire transfer instructions to an external account are a major red flag. Real CEOs use verified internal processes for financial transactions and would never bypass them.`,
     recommended_training_skill: 'bec_fraud_detection',
@@ -478,11 +478,7 @@ async function seed() {
       );
     }
 
-    // Also insert a validation_results record
-    await conn.execute(
-      'INSERT INTO validation_results (scenario_id, passed, failed_checks, retry_count, used_fallback) VALUES (?, 1, ?, 0, 1)',
-      [scenarioId, '[]']
-    );
+
 
     console.log(`  ✓ Seeded: [${scenario.difficulty}/${scenario.category}] ${scenario.subject.slice(0, 55)}`);
   }

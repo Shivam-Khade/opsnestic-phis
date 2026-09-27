@@ -45,7 +45,14 @@ function TrainingScenarioContent() {
   useEffect(() => {
     fetch(`/api/scenarios/${scenarioId}`)
       .then((r) => r.json())
-      .then((data) => { setScenario(data); setLoading(false); })
+      .then((data) => { 
+        if (data.error) {
+          setScenario(null);
+        } else {
+          setScenario(data); 
+        }
+        setLoading(false); 
+      })
       .catch(() => setLoading(false));
   }, [scenarioId]);
 
@@ -122,7 +129,7 @@ function TrainingScenarioContent() {
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--accent-gradient)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.875rem', fontWeight: 700, color: '#fff', flexShrink: 0 }}>
-                {scenario.sender[0].toUpperCase()}
+                {scenario.sender?.[0]?.toUpperCase() || '?'}
               </div>
               <div>
                 <p style={{ fontSize: '0.875rem', color: 'var(--text-primary)', fontWeight: 600, margin: 0, fontFamily: 'var(--font-mono)' }}>{scenario.sender}</p>

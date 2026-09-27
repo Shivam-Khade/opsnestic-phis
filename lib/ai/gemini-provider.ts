@@ -80,7 +80,8 @@ CRITICAL RULES — never violate these:
 5. Output ONLY valid JSON matching the requested schema — no prose, no markdown fences.
 6. The "explanation" field must be factual, educational, and at least 80 words.
 7. Every indicator marked "present: true" MUST have a corresponding, observable cue in the sender, subject, or body text.
-8. If you generate a 'domain_mismatch' indicator, occasionally use subtle spelling mistakes of known brand domains or the company domain (e.g. ${recipientDomain.replace('.', '0.')}) to make it observable.`;
+8. If you generate a 'domain_mismatch' indicator, occasionally use subtle spelling mistakes of known brand domains or the company domain (e.g. ${recipientDomain.replace('.', '0.')}) to make it observable.
+9. NEVER use placeholders like [Name], [Company], or <insert here>. Generate concrete, fully-fleshed out details (invent names, dates, amounts if needed). Do not output template variables.`;
 
     const categoryCtx = CATEGORY_CONTEXT[category] ?? `An email related to: ${category}`;
     const biasNote = indicatorBias.length > 0

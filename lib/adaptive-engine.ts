@@ -180,13 +180,13 @@ export function selectNextScenario(
 
     // Rule 1: Low accuracy → heavily boost weight
     if (accuracy < ACCURACY_WEAK_THRESHOLD) {
-      // The lower the accuracy, the higher the weight (adds 7 to 10 points)
-      weight += 5.0 + (1.0 - accuracy) * 5.0; 
+      // The lower the accuracy, the higher the weight (adds 15 to 25 points)
+      weight += 15.0 + (1.0 - accuracy) * 10.0; 
     }
 
     // Rule 2: Repeated indicator mistakes → boost further
     if (weakIndicators.length > 0) {
-      weight += 3.0;
+      weight += 10.0;
     }
 
     // Rule 3: Consistently high accuracy → reduce (don't over-serve strong areas)

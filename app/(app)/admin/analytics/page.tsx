@@ -25,7 +25,7 @@ export default async function AdminAnalyticsPage() {
       .limit(10)
       .execute(),
     db.selectFrom('validation_results')
-      .select([db.fn.countAll<number>().as('total'), db.fn.sum<number>('passed').as('passed'), db.fn.sum<number>('used_fallback').as('fallbacks'), db.fn.avg<number>('retry_count').as('avg_retries')])
+      .select([db.fn.countAll<number>().as('total'), db.fn.sum<number>('passed').as('passed'), db.fn.sum<number>('used_fallback').as('fallbacks')])
       .executeTakeFirst(),
   ]);
 
@@ -49,10 +49,7 @@ export default async function AdminAnalyticsPage() {
             <span className="ps-val warning">{Number(validationStats?.fallbacks ?? 0)}</span>
             <span className="ps-label">Fallbacks Served</span>
           </div>
-          <div className="ps-item">
-            <span className="ps-val">{Number(validationStats?.avg_retries ?? 0).toFixed(1)}</span>
-            <span className="ps-label">Avg Retries</span>
-          </div>
+
         </div>
         <p className="pipeline-note">
           This table is the audit trail for the proposed AI pipeline.
@@ -116,7 +113,7 @@ export default async function AdminAnalyticsPage() {
         .page-title { font-size:1.75rem; font-weight:800; margin:0 0 2rem; }
         .section { padding:1.5rem; margin-bottom:1.5rem; }
         .section-title { font-size:0.9rem; font-weight:700; margin:0 0 1.25rem; }
-        .pipeline-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:1rem; margin-bottom:1rem; }
+        .pipeline-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; margin-bottom:1rem; }
         @media(max-width:600px) { .pipeline-stats { grid-template-columns:repeat(2,1fr); } }
         .ps-item { background:var(--bg-elevated); border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:1rem; display:flex; flex-direction:column; gap:0.25rem; }
         .ps-val { font-size:1.75rem; font-weight:800; font-family:var(--font-mono); }
