@@ -198,9 +198,20 @@ export default function ChatClient({ history }: { history: ChatHistory[] }) {
                       <Bot size={16} color="#fff" />
                     </div>
                   )}
-                  <div style={{ maxWidth: '78%', borderRadius: '16px', padding: '0.875rem 1.125rem', ...(msg.role === 'user' ? { background: 'var(--accent-gradient)', color: '#fff', boxShadow: '0 4px 12px rgba(79,70,229,0.3)' } : { background: 'var(--bg-base)', border: '1px solid var(--border-default)', color: 'var(--text-primary)', boxShadow: 'var(--shadow-sm)' }) }}>
-                    <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.65, margin: 0, fontSize: '0.9375rem' }}>{msg.content}</p>
-                  </div>
+                  {msg.role === 'assistant' ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxWidth: '78%' }}>
+                      {msg.content.split(/\n\n+/).filter(c => c.trim().length > 0).map((chunkText, chunkIdx) => (
+                        <div key={chunkIdx} style={{ background: 'var(--bg-base)', border: '1px solid var(--border-default)', borderRadius: '16px', padding: '1rem 1.25rem', color: 'var(--text-primary)', boxShadow: 'var(--shadow-sm)' }}>
+                           <p style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--accent-primary)', margin: '0 0 0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Chunk {chunkIdx + 1}</p>
+                           <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.65, margin: 0, fontSize: '0.9375rem' }}>{chunkText}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ maxWidth: '78%', borderRadius: '16px', padding: '0.875rem 1.125rem', background: 'var(--accent-gradient)', color: '#fff', boxShadow: '0 4px 12px rgba(79,70,229,0.3)' }}>
+                      <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.65, margin: 0, fontSize: '0.9375rem' }}>{msg.content}</p>
+                    </div>
+                  )}
                   {msg.role === 'user' && (
                     <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--border-default)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       <User size={16} style={{ color: 'var(--text-secondary)' }} />
@@ -301,10 +312,9 @@ export default function ChatClient({ history }: { history: ChatHistory[] }) {
                     const evalState = chunkEvaluations[idx];
                     return (
                       <div key={idx} style={{ ...glassPanel, padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                        <div style={{ padding: '0.875rem', background: 'var(--bg-base)', border: '1px solid var(--border-default)', borderRadius: '12px', fontSize: '0.9rem', lineHeight: 1.6, color: 'var(--text-primary)' }}>
-                          <span style={{ fontWeight: 700, color: 'var(--accent-primary)', marginRight: '0.5rem' }}>Chunk {idx + 1}:</span>
-                          {chunk}
-                        </div>
+                        <h4 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <span style={{ color: 'var(--accent-primary)' }}>Chunk</span> {idx + 1}
+                        </h4>
                         
                         {/* Decision Radios */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
@@ -377,8 +387,10 @@ export default function ChatClient({ history }: { history: ChatHistory[] }) {
                   <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '0.75rem', textAlign: 'left', marginTop: '0.5rem' }}>
                     {resultData.chunkResults.map((res, i) => (
                        <div key={i} style={{ padding: '1rem', background: 'var(--bg-hover)', borderRadius: '12px', border: `1px solid ${res.userCorrect ? 'rgba(16,185,129,0.3)' : (res.decisionCorrect ? 'rgba(234,179,8,0.3)' : 'rgba(239,68,68,0.3)')}` }}>
-                          <p style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', margin: '0 0 0.5rem' }}>Chunk {i + 1} - {res.userCorrect ? '✅ Perfect' : (res.decisionCorrect ? '⚠️ Right decision, flawed reasoning' : '❌ Incorrect')}</p>
-                          <p style={{ fontSize: '0.85rem', color: 'var(--text-primary)', margin: '0 0 0.75rem', opacity: 0.9 }}>{res.text.length > 100 ? res.text.substring(0, 100) + '...' : res.text}</p>
+                          <p style={{ fontSize: '0.85rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-primary)', margin: '0 0 0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <span style={{ color: 'var(--accent-primary)' }}>Chunk {i + 1}</span>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>- {res.userCorrect ? '✅ Perfect' : (res.decisionCorrect ? '⚠️ Right decision, flawed reasoning' : '❌ Incorrect')}</span>
+                          </p>
                           <p style={{ fontSize: '0.875rem', color: res.actualHallucination ? '#ef4444' : '#10b981', margin: '0 0 0.5rem', display: 'flex', alignItems: 'center', gap: '0.375rem', fontWeight: 600 }}>
                             {res.actualHallucination ? <AlertTriangle size={14} /> : <CheckCircle2 size={14} />}
                             {res.actualHallucination ? 'Actual Hallucination' : 'Factual'}
