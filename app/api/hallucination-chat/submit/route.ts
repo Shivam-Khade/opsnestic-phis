@@ -23,12 +23,15 @@ export async function POST(req: Request) {
     const apiKey = process.env.GEMINI_API_KEY;
     
     // We will build a default response array in case the AI judge fails
-    let chunkResults = chunks.map(chunk => {
+    let chunkResults = chunks.map((chunk: any) => {
        const isUserHallucination = chunk.user_decision === 'hallucination';
+       const isDecisionCorrect = (was_hallucinated && isUserHallucination) || (!was_hallucinated && !isUserHallucination);
        return {
          text: chunk.text,
          actualHallucination: was_hallucinated, // default to overall flag if judge fails
-         userCorrect: (was_hallucinated && isUserHallucination) || (!was_hallucinated && !isUserHallucination),
+         userCorrect: false, // Default to false if AI can't validate reasoning
+         decisionCorrect: isDecisionCorrect,
+         reasoningCorrect: false,
          feedback: 'The AI judge could not evaluate this specific chunk.'
        };
     });
@@ -44,6 +47,7 @@ ${chunksJson}
 
 Your task is to verify if EACH chunk contains a factual hallucination (a completely false factual error, historical event, scientific concept, non-existent entity, or made-up feature that does not exist in reality). 
 Use Google Search to verify if the claims, steps, or features described in each chunk actually exist and are accurate.
+Additionally, you MUST evaluate the validity and correctness of the user's reasoning. If their reasoning is logically flawed, factually incorrect, or does not support their decision, you must mark their reasoning as incorrect.
 
 Return ONLY a JSON array with an evaluation object for each chunk, in the same order.
 Exact structure required:
@@ -51,8 +55,9 @@ Exact structure required:
   {
     "id": 0,
     "is_hallucination": true or false,
-    "user_was_correct": true or false,
-    "feedback": "A short 1-2 sentence feedback explaining why the chunk is factual or hallucinated, and commenting on the user's reasoning."
+    "is_decision_correct": true or false,
+    "is_reasoning_correct": true or false,
+    "feedback": "A short 2-3 sentence feedback explaining why the chunk is factual or hallucinated, AND explicitly commenting on whether the user's reasoning was sound or flawed."
   }
 ]`;
 
@@ -77,10 +82,12 @@ Exact structure required:
         const judgeData = JSON.parse(judgeResponseText);
         
         if (Array.isArray(judgeData) && judgeData.length === chunks.length) {
-           chunkResults = chunks.map((chunk, i) => ({
+           chunkResults = chunks.map((chunk: any, i: number) => ({
              text: chunk.text,
              actualHallucination: judgeData[i].is_hallucination,
-             userCorrect: judgeData[i].user_was_correct,
+             userCorrect: judgeData[i].is_decision_correct && judgeData[i].is_reasoning_correct,
+             decisionCorrect: judgeData[i].is_decision_correct,
+             reasoningCorrect: judgeData[i].is_reasoning_correct,
              feedback: judgeData[i].feedback
            }));
         }
@@ -107,10 +114,12 @@ Exact structure required:
             text = text.replace(/```json/g, '').replace(/```/g, '').trim();
             const judgeData = JSON.parse(text);
             if (Array.isArray(judgeData) && judgeData.length === chunks.length) {
-               chunkResults = chunks.map((chunk, i) => ({
+               chunkResults = chunks.map((chunk: any, i: number) => ({
                  text: chunk.text,
                  actualHallucination: judgeData[i].is_hallucination,
-                 userCorrect: judgeData[i].user_was_correct,
+                 userCorrect: judgeData[i].is_decision_correct && judgeData[i].is_reasoning_correct,
+                 decisionCorrect: judgeData[i].is_decision_correct,
+                 reasoningCorrect: judgeData[i].is_reasoning_correct,
                  feedback: judgeData[i].feedback
                }));
             }

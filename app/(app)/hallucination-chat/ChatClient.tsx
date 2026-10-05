@@ -27,7 +27,7 @@ export default function ChatClient({ history }: { history: ChatHistory[] }) {
   const [chunks, setChunks] = useState<string[]>([]);
   const [chunkEvaluations, setChunkEvaluations] = useState<{decision: 'hallucination' | 'factual' | null, reasoning: string}[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [resultData, setResultData] = useState<{ label: 'Correct' | 'Partial' | 'Incorrect', scoreText: string, chunkResults: { text: string, actualHallucination: boolean, userCorrect: boolean, feedback: string }[] } | null>(null);
+  const [resultData, setResultData] = useState<{ label: 'Correct' | 'Partial' | 'Incorrect', scoreText: string, chunkResults: { text: string, actualHallucination: boolean, userCorrect: boolean, decisionCorrect: boolean, reasoningCorrect: boolean, feedback: string }[] } | null>(null);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedSession, setSelectedSession] = useState<ChatHistory | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -152,7 +152,7 @@ export default function ChatClient({ history }: { history: ChatHistory[] }) {
             <span style={{ color: 'var(--text-primary)' }}> Training</span>
           </h1>
           <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', margin: 0 }}>
-            The AI has a 50% chance of subtly hallucinating. Ask a factual question, then fact-check!
+            The AI has a 75% chance of hallucinating (sometimes subtly, sometimes completely). Ask a factual question, then fact-check!
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
@@ -376,8 +376,8 @@ export default function ChatClient({ history }: { history: ChatHistory[] }) {
                   
                   <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '0.75rem', textAlign: 'left', marginTop: '0.5rem' }}>
                     {resultData.chunkResults.map((res, i) => (
-                       <div key={i} style={{ padding: '1rem', background: 'var(--bg-hover)', borderRadius: '12px', border: `1px solid ${res.userCorrect ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}` }}>
-                          <p style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', margin: '0 0 0.5rem' }}>Chunk {i + 1} - {res.userCorrect ? '✅ You got this right' : '❌ You missed this'}</p>
+                       <div key={i} style={{ padding: '1rem', background: 'var(--bg-hover)', borderRadius: '12px', border: `1px solid ${res.userCorrect ? 'rgba(16,185,129,0.3)' : (res.decisionCorrect ? 'rgba(234,179,8,0.3)' : 'rgba(239,68,68,0.3)')}` }}>
+                          <p style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', margin: '0 0 0.5rem' }}>Chunk {i + 1} - {res.userCorrect ? '✅ Perfect' : (res.decisionCorrect ? '⚠️ Right decision, flawed reasoning' : '❌ Incorrect')}</p>
                           <p style={{ fontSize: '0.85rem', color: 'var(--text-primary)', margin: '0 0 0.75rem', opacity: 0.9 }}>{res.text.length > 100 ? res.text.substring(0, 100) + '...' : res.text}</p>
                           <p style={{ fontSize: '0.875rem', color: res.actualHallucination ? '#ef4444' : '#10b981', margin: '0 0 0.5rem', display: 'flex', alignItems: 'center', gap: '0.375rem', fontWeight: 600 }}>
                             {res.actualHallucination ? <AlertTriangle size={14} /> : <CheckCircle2 size={14} />}
@@ -446,8 +446,8 @@ export default function ChatClient({ history }: { history: ChatHistory[] }) {
                       }
 
                       return parsedChunks.map((res: any, i: number) => (
-                        <div key={i} style={{ padding: '1.25rem', background: 'var(--bg-card)', borderRadius: '12px', border: `1px solid ${res.userCorrect ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)'}`, boxShadow: 'var(--shadow-sm)' }}>
-                           <p style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', margin: '0 0 0.75rem' }}>Chunk {i + 1} - {res.userCorrect ? '✅ You got this right' : '❌ You missed this'}</p>
+                        <div key={i} style={{ padding: '1.25rem', background: 'var(--bg-card)', borderRadius: '12px', border: `1px solid ${res.userCorrect ? 'rgba(16,185,129,0.2)' : (res.decisionCorrect ? 'rgba(234,179,8,0.2)' : 'rgba(239,68,68,0.2)')}`, boxShadow: 'var(--shadow-sm)' }}>
+                           <p style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', margin: '0 0 0.75rem' }}>Chunk {i + 1} - {res.userCorrect ? '✅ Perfect' : (res.decisionCorrect ? '⚠️ Right decision, flawed reasoning' : '❌ Incorrect')}</p>
                            <p style={{ fontSize: '0.9rem', color: 'var(--text-primary)', margin: '0 0 1rem', lineHeight: 1.6 }}>{res.text}</p>
                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
                              <span style={{ fontSize: '0.8125rem', padding: '0.25rem 0.5rem', borderRadius: '6px', background: res.actualHallucination ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)', color: res.actualHallucination ? '#ef4444' : '#10b981', display: 'flex', alignItems: 'center', gap: '0.375rem', fontWeight: 600 }}>

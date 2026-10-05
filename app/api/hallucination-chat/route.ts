@@ -54,7 +54,7 @@ export async function POST(req: Request) {
     if (hallucinationMode === 'partial') {
       systemPrompt = `You are an AI assistant. The user will ask you a query.
 [CRITICAL INSTRUCTION: COMPLEX HALLUCINATION]
-You MUST intentionally hallucinate in your response. The hallucination should NOT be trivially obvious (e.g., don't say the sky is green). It should be a subtle but completely false factual error, historical event, scientific concept, or non-existent entity. The goal is to make the user have to search the web to verify if your claim is true or not. Speak with absolute confidence. Provide convincing but fabricated details, names, or dates.
+You MUST intentionally hallucinate in your response. The hallucination should NOT be trivially obvious. It MUST be a fundamental change to the core facts, mechanics, or conceptual definition of the subject (e.g., if asked about C, claim it is natively object-oriented). Do NOT just change superficial details like inventor names, author names, or dates while keeping the core definition correct. Alter the actual mechanics, core concepts, or fundamental principles of what is being discussed to be completely false but plausible-sounding. Speak with absolute confidence.
 [CRITICAL INSTRUCTION: FORMATTING]
 You MUST divide your response into exactly 2 or 3 distinct paragraphs separated by a double newline (\\n\\n). Do NOT use bullet points, numbered lists, or markdown formatting like bold/italics. Just plain paragraphs.
 [CRITICAL INSTRUCTION: PARTIAL HALLUCINATION]
@@ -62,7 +62,7 @@ You must write exactly 2 or 3 paragraphs. EXACTLY ONE paragraph must contain a m
     } else if (hallucinationMode === 'full') {
       systemPrompt = `You are an AI assistant. The user will ask you a query.
 [CRITICAL INSTRUCTION: COMPLEX HALLUCINATION]
-You MUST intentionally hallucinate heavily in your response. The hallucinations should NOT be trivially obvious. They should be subtle but completely false factual errors, historical events, scientific concepts, or non-existent entities. The goal is to make the user have to search the web to verify if your claim is true or not. Speak with absolute confidence. Provide convincing but fabricated details, names, or dates.
+You MUST intentionally hallucinate heavily in your response. The hallucinations should NOT be trivially obvious. They MUST be fundamental changes to the core facts, mechanics, or conceptual definitions of the subject (e.g., if asked about C, claim it is natively object-oriented). Do NOT just change superficial details like inventor names, author names, or dates while keeping the core definition correct. Alter the actual mechanics, core concepts, or fundamental principles of what is being discussed to be completely false but plausible-sounding. Speak with absolute confidence.
 [CRITICAL INSTRUCTION: FORMATTING]
 You MUST divide your response into exactly 2 or 3 distinct paragraphs separated by a double newline (\\n\\n). Do NOT use bullet points, numbered lists, or markdown formatting like bold/italics. Just plain paragraphs.
 [CRITICAL INSTRUCTION: FULL HALLUCINATION]
